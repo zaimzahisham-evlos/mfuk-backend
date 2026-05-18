@@ -1,0 +1,68 @@
+services:
+    db:
+      container_name: postgres_db
+      image: postgres:16
+      environment:
+        - POSTGRES_USER=${POSTGRES_USER}
+        - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+        - POSTGRES_DB=${POSTGRES_DB}
+      volumes:
+        - postgres_data:/var/lib/postgresql/data
+      ports:
+        - "5432:5432"
+      networks:
+        - default
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+        interval: 5s
+        timeout: 5s
+        retries: 5
+
+    backend:
+      container_name: fastapi_backend
+      build:
+        context: .
+        dockerfile: Dockerfile
+      ports:
+        - "8000:8000"   # PROTECTS the .venv created by 'uv sync' during build
+      depends_on:
+        db:
+          condition: service_healthy
+      env_file:
+        - .env
+      networks:
+        - default
+
+    redis:
+      image: redis:latest
+      container_name: redis
+      command: ["redis-server", "--appendonly", "yes", "--save", "60 1000"]
+      ports:
+        - "6379:6379"
+      volumes:
+        - redis_data:/data
+      networks:
+        - default
+
+    test_db:
+      container_name: test_postgres_db
+      image: postgres:16
+      environment:
+        - POSTGRES_USER=${POSTGRES_USER}
+        - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+        - POSTGRES_DB=${POSTGRES_DB}
+      volumes:
+        - test_postgres_data:/var/lib/postgresql/data
+      ports:
+        - "5433:5432"
+      networks:
+        - default
+
+volumes:
+  postgres_data:
+  redis_data:
+  test_postgres_data:
+
+networks:
+  default:
+    driver: bridge

@@ -1,0 +1,19 @@
+# Local development: merged automatically with docker-compose.yml when you run `docker compose up`.
+# Production / CI: use only the base file, e.g. `docker compose -f docker-compose.yml up`
+# or `COMPOSE_FILE=docker-compose.yml docker compose up`.
+
+services:
+  backend:
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/app
+    volumes:
+      - ./app:/app/app
+      - ./tests:/app/tests
+    environment:
+      # Helps file reload inside Docker Desktop (macOS/Windows); safe to remove on Linux if undesired.
+      WATCHFILES_FORCE_POLLING: "true"
+    develop:
+      watch:
+        - action: rebuild
+          path: pyproject.toml
+        - action: rebuild
+          path: uv.lock

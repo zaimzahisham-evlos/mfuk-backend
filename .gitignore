@@ -1,0 +1,8 @@
+.venv
+*.pyc
+.env
+.env.local
+docker-compose.override.yml
+.vscode
+specs
+.cursor
