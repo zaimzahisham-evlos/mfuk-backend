@@ -29,7 +29,7 @@ services:
         db:
           condition: service_healthy
         seaweed-s3:
-          condition: service_started
+          condition: service_healthy
       env_file:
         - .env
       networks:
@@ -90,20 +90,35 @@ services:
         - seaweed-volume
       ports:
         - "8888:8888"   # filer HTTP
+      volumes:
+        - seaweed_filer_data:/data
       networks:
         - default
+      healthcheck:
+        test: ["CMD-SHELL", "curl -sf http://127.0.0.1:8888/ >/dev/null || test $$? -eq 22"]
+        interval: 5s
+        timeout: 5s
+        retries: 12
+        start_period: 30s
 
     seaweed-s3:
       image: chrislusf/seaweedfs:latest
       command: "s3 -filer=seaweed-filer:8888 -port=8333 -config=/etc/seaweedfs/s3.conf"
       depends_on:
-        - seaweed-filer
+        seaweed-filer:
+          condition: service_healthy
       ports:
         - "8333:8333"   # S3 endpoint for app/frontend
       volumes:
         - ./s3.conf:/etc/seaweedfs/s3.conf:ro
       networks:
         - default
+      healthcheck:
+        test: ["CMD-SHELL", "code=$$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8333/); test \"$$code\" -ge 200 -o \"$$code\" -eq 403"]
+        interval: 5s
+        timeout: 5s
+        retries: 12
+        start_period: 45s
 
 volumes:
   postgres_data:
@@ -111,6 +126,7 @@ volumes:
   test_postgres_data:
   seaweed_master_data:
   seaweed_volume_data:
+  seaweed_filer_data:
 
 networks:
   default:
