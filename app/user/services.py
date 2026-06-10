@@ -1,10 +1,10 @@
 import logging
 from sqlalchemy.exc import IntegrityError
 from app.core.utils import utcnow
-from app.user.helpers import validate_auth_on_create, validate_auth_on_update
+from app.user.helpers import to_user_response, validate_auth_on_create, validate_auth_on_update
 from ..user.models import UserStatus
 from ..user.repository import UserRepository
-from ..user.schema import UserCreate, UserResponse, UserUpdate
+from ..user.schema import UserCreate, UserResponse, UserRoleCode, UserUpdate
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.exceptions import BadRequestError, NotFoundError
 
@@ -13,28 +13,15 @@ class UserService:
         self.repo = UserRepository(db)
         self.db = db
 
-    def _extract_role_codes(self, user) -> list[dict]:
-        # role can be None even if the user role is active if role is deleted
-        roles = [user_role.role for user_role in user.roles_assigned if user_role.role is not None]
-        return [{"id": role.id, "role_code": role.role_code} for role in roles]
-
     async def get_users(self) -> list[UserResponse]:
         users = await self.repo.get_users()
-        data = []
-        for user in users:
-            dto = UserResponse.model_validate(user)
-            dto.role_codes = self._extract_role_codes(user)
-            data.append(dto)
-        return data
+        return [to_user_response(user) for user in users]
 
     async def get_user_by_id(self, user_id: int, status: UserStatus | None = None) -> UserResponse:
         user = await self.repo.get_user_by_id(user_id, status)
         if not user:
             raise NotFoundError(f"User with ID {user_id} not found")
-        role_codes = self._extract_role_codes(user)
-        user = UserResponse.model_validate(user)
-        user.role_codes = role_codes
-        return user
+        return to_user_response(user)
 
     async def get_user_by_user_code(self, user_code: str, status: UserStatus | None = None) -> UserResponse:
         user_code = user_code.strip().upper()
@@ -42,10 +29,7 @@ class UserService:
         if not user:
             raise NotFoundError(f"User with user code {user_code} not found")
 
-        role_codes = self._extract_role_codes(user)
-        user = UserResponse.model_validate(user)
-        user.role_codes = role_codes
-        return user
+        return to_user_response(user)
 
 
     async def create_user(self, user: UserCreate) -> UserResponse:
@@ -59,7 +43,7 @@ class UserService:
 
         try:
             new_user = await self.repo.create_user(user)
-            new_user = UserResponse.model_validate(new_user)
+            new_user = to_user_response(new_user)
                 
         except IntegrityError as e:
             logging.error(f"Error creating user: {e}")
@@ -87,9 +71,7 @@ class UserService:
 
         try:
             updated_user = await self.repo.update_user(existing_user, user_updates)
-            role_codes = self._extract_role_codes(updated_user)
-            updated_user = UserResponse.model_validate(updated_user)
-            updated_user.role_codes = role_codes
+            updated_user = to_user_response(updated_user)
         except IntegrityError as e:
             logging.error(f"Error updating user: {e}")
             raise BadRequestError(f"Invalid user payload or conflicting user data")

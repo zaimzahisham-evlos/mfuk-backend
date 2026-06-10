@@ -8,10 +8,9 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from alembic import context
 from app.core.config import settings
 from app.db.models import Base
-
-# Import models so tables register on Base.metadata (required for Alembic autogenerate).
-from app.user.models import User
-from app.rbac.models import Permission, Role, RolePermission, UserRole
+import os
+import importlib
+import pkgutil
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -29,6 +28,32 @@ if config.config_file_name is not None:
 # add your model's MetaData object here
 # for 'autogenerate' support
 # from myapp import mymodel
+# from app.user.models import User
+# from app.rbac.models import Permission, Role, RolePermission, UserRole
+# from app.production.models import Machine, SKU, Recipe, RecipeVersion
+def import_all_models():
+    # Looks for the parent folder container ('app/') relative to this file
+    app_root_path = os.path.dirname(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    )
+    
+    # Exclude non-app directories inside your app folder
+    excluded_folders = {"core", "db", "seed", "__pycache__"}
+    
+    if os.path.exists(app_root_path):
+        for _, module_name, is_pkg in pkgutil.iter_modules([app_root_path]):
+            if is_pkg and module_name not in excluded_folders:
+                try:
+                    print(f"DEBUG: Alembic is registering module: {module_name}")
+                    # Dynamically runs 'import app.user.models', 'import app.auth.models', etc.
+                    importlib.import_module(f"app.{module_name}.models")
+                    print(f"DEBUG: Alembic successfully registered module: {module_name}")
+                except ModuleNotFoundError:
+                    # Skip if a module (like rbac) does not have a models.py yet
+                    print(f"DEBUG: Alembic skipped module: {module_name} because it does not have a models.py")
+                    pass
+
+import_all_models()
 # target_metadata = mymodel.Base.metadata
 target_metadata = Base.metadata
 

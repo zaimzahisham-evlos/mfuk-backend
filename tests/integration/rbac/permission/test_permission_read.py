@@ -7,7 +7,7 @@ async def test_superadmin_get_all_permissions(authorized_client_superadmin):
     response = await authorized_client_superadmin.get("/authorization/permissions")
     assert response.status_code == 200
     # initial seeded permissions for each module and category from app.db.seed.permissions.py
-    assert len(response.json()) == 50 
+    assert len(response.json()) == 100 
 
 async def test_user_no_permission_get_all_permissions(authorized_client_human_no_role):
     response = await authorized_client_human_no_role.get("/authorization/permissions")
@@ -18,7 +18,7 @@ async def test_rbac_manager_get_all_permissions(authorized_client_rbac_manager):
     response = await authorized_client_rbac_manager.get("/authorization/permissions")
     assert response.status_code == 200
     # initial seeded permissions for each module and category from app.db.seed.permissions.py
-    assert len(response.json()) == 50 
+    assert len(response.json()) == 100 
 
 async def test_get_permissions_for_modules(authorized_client_rbac_manager):
     response = await authorized_client_rbac_manager.get("/authorization/permissions?modules=role&modules=permission")

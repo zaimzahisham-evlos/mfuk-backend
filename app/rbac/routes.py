@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Response, status, Depends, Query
-from app.auth.dependencies import CurrentUser, require_permission
+from app.auth.dependencies import require_permission
 from app.core.utils import utcnow
 from app.user.schema import UserResponse
 from ..rbac.schema import *

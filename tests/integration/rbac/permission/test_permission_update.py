@@ -10,7 +10,7 @@ test_payload = {
 
 def assert_permission_updated(response, payload):
     assert response.status_code == 200
-    assert response.json()["permission_name"] == payload["permission_name"].title()
+    assert response.json()["permission_name"] == payload["permission_name"]
     assert response.json()["module"] == payload["module"].title()
     assert response.json()["category"] == payload["category"]
     assert response.json()["status"] == "Active"

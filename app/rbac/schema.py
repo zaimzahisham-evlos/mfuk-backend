@@ -28,10 +28,15 @@ class PermissionBase(BaseModel):
     def normalize_permission_code(cls, v: str) -> str:
         return trim_and_reject_blank(v).upper()
 
-    @field_validator("permission_name", "module", mode="before")
+    @field_validator("module", mode="before")
     @classmethod
-    def normalize_permission_name_and_module(cls, v: str) -> str:
+    def normalize_module(cls, v: str) -> str:
         return trim_and_reject_blank(v).title()
+
+    @field_validator("permission_name", mode="before")
+    @classmethod
+    def normalize_permission_name(cls, v: str) -> str:
+        return trim_and_reject_blank(v)
 
 class PermissionCreateRequest(PermissionBase):
     description: Optional[str] = Field(default=None, description="The description of the permission")
@@ -46,12 +51,20 @@ class PermissionUpdateRequest(BaseModel):
     status: Optional[PermissionStatus] = Field(default=None, description="The status of the permission")
     description: Optional[str] = Field(default=None, description="The description of the permission")
 
-    @field_validator("permission_name", "module", mode="before")
+    @field_validator("module", mode="before")
     @classmethod
-    def normalize_permission_name_and_module(cls, v: Optional[str]) -> Optional[str]:
+    def normalize_module(cls, v: Optional[str]) -> Optional[str]:
         if v is None:
             return None
         return trim_and_reject_blank(v).title()
+    
+    @field_validator("permission_name", mode="before")
+    @classmethod
+    def normalize_permission_name(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        return trim_and_reject_blank(v)
+
 
 class PermissionUpdate(PermissionUpdateRequest):
     updated_by_id: Optional[int] = Field(default=None, description="The ID of the user who updated the permission")
@@ -86,7 +99,7 @@ class RoleBase(BaseModel):
     @field_validator("role_name", mode="before")
     @classmethod
     def normalize_role_name(cls, v: str) -> str:
-        return trim_and_reject_blank(v).title()
+        return trim_and_reject_blank(v)
 
 class RoleCreateRequest(RoleBase):
     pass
@@ -105,7 +118,7 @@ class RoleUpdateRequest(BaseModel):
     def normalize_role_name(cls, v: Optional[str]) -> Optional[str]:
         if v is None:
             return None
-        return trim_and_reject_blank(v).title()
+        return trim_and_reject_blank(v)
 
 class RoleUpdate(RoleUpdateRequest):
     updated_by_id: Optional[int] = Field(default=None, description="The ID of the user who updated the role")

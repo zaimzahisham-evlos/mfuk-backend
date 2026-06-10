@@ -28,6 +28,8 @@ services:
       depends_on:
         db:
           condition: service_healthy
+        seaweed-s3:
+          condition: service_started
       env_file:
         - .env
       networks:
@@ -58,10 +60,57 @@ services:
       networks:
         - default
 
+    seaweed-master:
+      image: chrislusf/seaweedfs:latest
+      command: "master -ip=seaweed-master -mdir=/data"
+      ports:
+        - "9333:9333"
+      volumes:
+        - seaweed_master_data:/data
+      networks:
+        - default
+
+    seaweed-volume:
+      image: chrislusf/seaweedfs:latest
+      command: "volume -mserver=seaweed-master:9333 -ip=seaweed-volume -dir=/data -max=0"
+      depends_on:
+        - seaweed-master
+      ports:
+        - "8080:8080"
+      volumes:
+        - seaweed_volume_data:/data
+      networks:
+        - default
+      
+    seaweed-filer:
+      image: chrislusf/seaweedfs:latest
+      command: "filer -master=seaweed-master:9333 -ip=seaweed-filer"
+      depends_on:
+        - seaweed-master
+        - seaweed-volume
+      ports:
+        - "8888:8888"   # filer HTTP
+      networks:
+        - default
+
+    seaweed-s3:
+      image: chrislusf/seaweedfs:latest
+      command: "s3 -filer=seaweed-filer:8888 -port=8333 -config=/etc/seaweedfs/s3.conf"
+      depends_on:
+        - seaweed-filer
+      ports:
+        - "8333:8333"   # S3 endpoint for app/frontend
+      volumes:
+        - ./s3.conf:/etc/seaweedfs/s3.conf:ro
+      networks:
+        - default
+
 volumes:
   postgres_data:
   redis_data:
   test_postgres_data:
+  seaweed_master_data:
+  seaweed_volume_data:
 
 networks:
   default:

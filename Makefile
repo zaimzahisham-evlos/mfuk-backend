@@ -29,10 +29,10 @@ resetserver: ## Reset the server by stopping, removing containers, networks, vol
 	docker compose -f docker-compose.yml -f docker-compose.override.yml down -v
 	make runserver
 
-make clean: ## Clean the project by stopping, removing containers, networks, volumes, and images.
+clean: ## Clean the project by stopping, removing containers, networks, volumes, and images.
 	docker compose -f docker-compose.yml -f docker-compose.override.yml down -v
 
-make tests: ## Run the tests.
+tests: ## Run the tests.
 	@$(eval path=$(filter-out $@,$(MAKECMDGOALS)))
 	docker exec fastapi_backend pytest $(path)
 
@@ -48,8 +48,10 @@ migrate: ## Create and apply a migration. Usage: make migrate your message here
 rollback: ## Rollback the last migration
 	docker exec fastapi_backend alembic downgrade -1
 
-createmodule: ## Create a new module. Usage: make createmodule <name>
-	@$(eval name=$(filter-out $@,$(MAKECMDGOALS)))
+createmodule: ## Create a new module. Usage: make createmodule <name> <model_name1> <model_name2> ...
+	@$(eval args=$(filter-out $@,$(MAKECMDGOALS)))
+	@$(eval name=$(firstword $(args)))
+	@$(eval models=$(wordlist 2,$(words $(args)),$(args)))
 	@if [ -z "$(name)" ]; then echo "Error: 'name' is required. Use: make createmodule <name>"; exit 1; fi
 	@if [ -d "app/$(name)" ]; then echo "Error: '$(name)' module already exists"; exit 1; fi
 	mkdir -p app/$(name)
@@ -60,10 +62,21 @@ createmodule: ## Create a new module. Usage: make createmodule <name>
 	touch app/$(name)/services.py
 	touch app/$(name)/routes.py
 	touch app/$(name)/helpers.py
-	touch tests/integration/$(name)/test_$(name)_create.py
-	touch tests/integration/$(name)/test_$(name)_read.py
-	touch tests/integration/$(name)/test_$(name)_update.py
-	touch tests/integration/$(name)/test_$(name)_delete.py
+	mkdir -p tests/integration/$(name)
+	@if [ -z "$(models)" ]; then \
+		touch tests/integration/$(name)/test_$(name)_create.py; \
+		touch tests/integration/$(name)/test_$(name)_read.py; \
+		touch tests/integration/$(name)/test_$(name)_update.py; \
+		touch tests/integration/$(name)/test_$(name)_delete.py; \
+	else \
+		for model in $(models); do \
+			mkdir -p tests/integration/$(name)/$$model; \
+			touch tests/integration/$(name)/$$model/test_$${model}_create.py; \
+			touch tests/integration/$(name)/$$model/test_$${model}_read.py; \
+			touch tests/integration/$(name)/$$model/test_$${model}_update.py; \
+			touch tests/integration/$(name)/$$model/test_$${model}_delete.py; \
+		done; \
+	fi
 
 # Accept any target name as an argument to avoid "No rule to make target" errors
 %:

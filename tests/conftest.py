@@ -7,8 +7,8 @@ from alembic.config import Config
 from app.main import app
 from app.db.session import get_db
 from app.core.config import settings
-from app.rbac.models import PermissionCategory
-from app.user.models import UserStatus, UserType
+from app.user.models import UserType
+from tests.utils import create_user
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_database():
@@ -51,21 +51,10 @@ async def client(db_session):
 @pytest.fixture(scope="function")
 async def authorized_client_human_no_role(client, db_session):
     """Creates a user with no roles, generates a token, and inject to client headers"""
-    from app.user.services import UserService
-    from app.user.schema import UserCreate
     from app.auth.services import AuthenticationService
 
-    user_service = UserService(db_session)
-    user_data = UserCreate(
-        user_code="testuser",
-        full_name="Test User",
-        user_type=UserType.HUMAN,
-        status=UserStatus.ACTIVE,
-        password="password"
-    )
-    await user_service.create_user(user_data)
-
-    token = await AuthenticationService(db_session).login_user_by_user_code(user_data.user_code, user_data.password)
+    user = await create_user(db_session, full_name="test user")
+    token = await AuthenticationService(db_session).login_user_by_user_code(user.user_code, "password")
 
     client.headers["Authorization"] = f"Bearer {token.access_token}"
     yield client
@@ -73,21 +62,15 @@ async def authorized_client_human_no_role(client, db_session):
 @pytest.fixture(scope="function")
 async def authorized_client_non_human(client, db_session):
     """Creates a non human user with no roles, generates a token, and inject to client headers"""
-    from app.user.services import UserService
-    from app.user.schema import UserCreate
     from app.auth.services import AuthenticationService
 
-    user_service = UserService(db_session)
-    user_data = UserCreate(
-        user_code="testusernonhuman",
+    user = await create_user( 
+        db_session, 
         full_name="Test User Non Human",
         user_type=UserType.SYSTEM,
-        status=UserStatus.ACTIVE,
-        password=None
     )
-    await user_service.create_user(user_data)
 
-    token = await AuthenticationService(db_session).login_user_by_user_code(user_data.user_code, user_data.password)
+    token = await AuthenticationService(db_session).login_user_by_user_code(user.user_code, None)
 
     client.headers["Authorization"] = f"Bearer {token.access_token}"
     yield client
@@ -108,49 +91,16 @@ async def authorized_client_superadmin(client, db_session):
 @pytest.fixture(scope="function")
 async def authorized_client_user_manager(client, db_session):
     """Creates a user with a role that has permissions to update users, generates a token, and inject to client headers"""
-    from app.user.services import UserService
-    from app.user.schema import UserCreate
     from app.auth.services import AuthenticationService
-    from app.rbac.services import RbacService
-    from app.rbac.schema import RoleCreate
-    from app.rbac.schema import AssignPermissionsToRole, AssignRolePermission, AssignRolesToUser, AssignUserRole
 
-    rbac_service = RbacService(db_session)
-    role_data = RoleCreate(
+    user = await create_user(
+        db_session, 
+        full_name="user manager",
         role_code="USER_MANAGER",
-        role_name="User Manager",
-    )
-    role = await rbac_service.create_role(role_data)
-
-    permission_service = RbacService(db_session)
-    permissions = await permission_service.get_permissions(modules=["USER"])
-    permissions_to_role = AssignPermissionsToRole(
-        role_id=role.id,
-        role_permissions=[
-            AssignRolePermission(
-                permission_id=permission.id,
-            )
-            for permission in permissions
-        ]
+        permission_modules=["USER"],
     )
 
-    await rbac_service.assign_permissions_to_role(permissions_to_role)
-
-    user_service = UserService(db_session)
-    user_data = UserCreate(
-        user_code="usermanager",
-        full_name="User Manager",
-        password="password",
-    )
-    user = await user_service.create_user(user_data)
-    await rbac_service.assign_roles_to_user(
-        AssignRolesToUser(
-            user_id=user.id, 
-            user_roles=[AssignUserRole(role_id=role.id)]
-        )
-    )
-
-    token = await AuthenticationService(db_session).login_user_by_user_code(user_data.user_code, user_data.password)
+    token = await AuthenticationService(db_session).login_user_by_user_code(user.user_code, "password")
 
     client.headers["Authorization"] = f"Bearer {token.access_token}"
     yield client
@@ -158,49 +108,149 @@ async def authorized_client_user_manager(client, db_session):
 @pytest.fixture(scope="function")
 async def authorized_client_rbac_manager(client, db_session):
     """Creates a user with a role that has permissions to update roles and permissions, generates a token, and inject to client headers"""
-    from app.rbac.services import RbacService
-    from app.rbac.schema import RoleCreate
-    from app.rbac.schema import AssignPermissionsToRole, AssignRolePermission, AssignRolesToUser, AssignUserRole
-    from app.user.services import UserService
-    from app.user.schema import UserCreate
     from app.auth.services import AuthenticationService
-    from app.rbac.models import RolePermissionStatus
 
-    rbac_service = RbacService(db_session)
-    role_data = RoleCreate(
+    user = await create_user(
+        db_session,
+        full_name="rbac manager",
         role_code="RBAC_MANAGER",
-        role_name="RBAC Manager",
-    )
-    role = await rbac_service.create_role(role_data)
-
-    permission_service = RbacService(db_session)
-    permissions = await permission_service.get_permissions(modules=["user", "role", "role_permission", "permission", "user_role"])
-    permissions_to_role = AssignPermissionsToRole(
-        role_id=role.id,
-        role_permissions=[
-            AssignRolePermission(
-                permission_id=permission.id,
-                status=RolePermissionStatus.INACTIVE if permission.category in [PermissionCategory.OVERRIDE] else RolePermissionStatus.ACTIVE,
-            )
-            for permission in permissions
-        ]
-    )
-    await rbac_service.assign_permissions_to_role(permissions_to_role)
-
-    user_service = UserService(db_session)
-    user_data = UserCreate(
-        user_code="rbacmanager",
-        full_name="RBAC Manager",
-        password="password",
-    )
-    user = await user_service.create_user(user_data)
-    await rbac_service.assign_roles_to_user(
-        AssignRolesToUser(
-            user_id=user.id, 
-            user_roles=[AssignUserRole(role_id=role.id)]
-        )
+        permission_modules=["user", "role", "role_permission", "permission", "user_role"],
     )
 
-    token = await AuthenticationService(db_session).login_user_by_user_code(user_data.user_code, user_data.password)
+    token = await AuthenticationService(db_session).login_user_by_user_code(user.user_code, "password")
     client.headers["Authorization"] = f"Bearer {token.access_token}"
     yield client
+
+@pytest.fixture(scope="function")
+async def authorized_client_admin(client, db_session):
+    """Creates an Admin user that has all permissions to all modules"""
+    from app.auth.services import AuthenticationService
+
+    user = await create_user(
+        db_session, 
+        full_name="admin",
+        role_code="ADMIN",
+    )
+
+    token = await AuthenticationService(db_session).login_user_by_user_code(user.user_code, "password")
+    client.headers["Authorization"] = f"Bearer {token.access_token}"
+    yield client
+
+@pytest.fixture(scope="function")
+async def seeded_machines(db_session):
+    from app.production.services import ProductionService
+    from app.production.schema import MachineCreate
+    from app.production.models import MachineStatus
+
+    production_service = ProductionService(db_session)
+    machines = [
+        MachineCreate(
+            machine_code="MFUK_M00",
+            machine_name="Machine 00",
+            status=MachineStatus.ACTIVE,
+        ),
+        MachineCreate(
+            machine_code="MFUK_M99",
+            machine_name="Machine 99",
+            status=MachineStatus.MAINTENANCE,
+        ),
+    ]
+    created_machines = []
+    for machine_data in machines:
+        machine = await production_service.create_machine(machine_data)
+        created_machines.append(machine)
+    
+    yield created_machines
+
+@pytest.fixture(scope="function")
+async def seeded_skus(db_session):
+    from app.production.services import ProductionService
+    from app.production.schema import SKUCreate
+    from app.production.models import SKUStatus
+
+    production_service = ProductionService(db_session)
+    skus = [
+        SKUCreate(
+            sku_code="TEST_SKU_00",
+            sku_name="Test SKU 00",
+            status=SKUStatus.ACTIVE,
+        ),
+        SKUCreate(
+            sku_code="TEST_SKU_99",
+            sku_name="Test SKU 99",
+            status=SKUStatus.INACTIVE,
+        ),
+    ]
+    created_skus = []
+    for sku_data in skus:
+        sku = await production_service.create_sku(sku_data)
+        created_skus.append(sku)
+
+    yield created_skus
+
+@pytest.fixture(scope="function")
+async def seeded_recipes(db_session, seeded_skus, seeded_machines):
+    from app.production.services import ProductionService
+    from app.production.schema import RecipeCreate
+    from app.production.models import RecipeStatus
+
+    production_service = ProductionService(db_session)
+    recipes = [
+        RecipeCreate(
+            recipe_code="TEST_RECIPE_00",
+            recipe_name="Test Recipe 00",
+            sku_id=seeded_skus[0].id,
+            machine_id=seeded_machines[0].id,
+            status=RecipeStatus.ACTIVE,
+        ),
+        RecipeCreate(
+            recipe_code="TEST_RECIPE_01",
+            recipe_name="Test Recipe 01",
+            sku_id=seeded_skus[0].id,
+            machine_id=seeded_machines[1].id,
+            status=RecipeStatus.ACTIVE,
+        ),
+        RecipeCreate(
+            recipe_code="TEST_RECIPE_10",
+            recipe_name="Test Recipe 02",
+            sku_id=seeded_skus[1].id,
+            machine_id=seeded_machines[0].id,
+            status=RecipeStatus.INACTIVE,
+        )
+    ]
+    created_recipes = []
+    for recipe_data in recipes:
+        recipe = await production_service.create_recipe(recipe_data)
+        created_recipes.append(recipe)
+
+    yield created_recipes
+
+@pytest.fixture(scope="function")
+async def seeded_recipe_versions(db_session, seeded_recipes):
+    from app.production.services import ProductionService
+    from app.production.schema import RecipeVersionCreate
+
+    production_service = ProductionService(db_session)
+    recipe_versions = [
+        RecipeVersionCreate(
+            recipe_id=seeded_recipes[0].id,
+            version_code="TEST_RECIPE_VERSION_001",
+            version_name="Test Recipe Version 001",
+        ),
+        RecipeVersionCreate(
+            recipe_id=seeded_recipes[0].id,
+            version_code="TEST_RECIPE_VERSION_002",
+            version_name="Test Recipe Version 002",
+            approval_required=False,
+        ),
+        RecipeVersionCreate(
+            recipe_id=seeded_recipes[1].id,
+            version_code="TEST_RECIPE_VERSION_011",
+            version_name="Test Recipe Version 011",
+            approval_required=False,
+        ),
+    ]
+    created_recipe_versions = []
+    for recipe_version_data in recipe_versions:
+        recipe_version = await production_service.create_recipe_version(recipe_version_data)
+        created_recipe_versions.append(recipe_version)

@@ -5,9 +5,16 @@ from starlette.responses import JSONResponse
 from .core.routes import router
 from .core.config import settings
 from .core.logging import setup_logging, LogLevel
+from .storage.dependencies import bootstrap_storage
 import logging
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    bootstrap_storage()
+    yield
+
+app = FastAPI(lifespan=lifespan)
+
 setup_logging(LogLevel.debug if settings.DEBUG else LogLevel.info)
 
 @app.exception_handler(RequestValidationError)

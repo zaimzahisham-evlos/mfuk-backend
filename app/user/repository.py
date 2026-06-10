@@ -87,7 +87,7 @@ class UserRepository:
             await self.db.rollback()
             raise
 
-        await self.db.refresh(new_user)
+        await self.db.refresh(new_user, ["roles_assigned"])
         return new_user
 
     async def update_user(self, user: User, user_updates: UserUpdate) -> User:
@@ -106,5 +106,5 @@ class UserRepository:
             await self.db.rollback()
             raise
 
-        await self.db.refresh(user)
+        await self.db.refresh(user, ["roles_assigned"])
         return user

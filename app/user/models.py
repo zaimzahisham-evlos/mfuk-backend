@@ -1,13 +1,11 @@
 from __future__ import annotations
-from datetime import datetime
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, BigInteger, Text, Enum as SAEnum, text
+from sqlalchemy import CheckConstraint, Index, BigInteger, Text, Enum as SAEnum, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from enum import Enum
 
-from app.db.mixins import SoftDeleteMixin
+from app.db.mixins import AuditMixin
 
 from ..db.models import Base
-from ..core.utils import utcnow
 
 class UserType(str, Enum):
     HUMAN = "Human"
@@ -22,7 +20,7 @@ class UserStatus(str, Enum):
     SUSPENDED = "Suspended"
     DELETED = "Deleted"
 
-class User(SoftDeleteMixin, Base):
+class User(AuditMixin, Base):
     __tablename__ = "users"
     __table_args__ = (
         Index(
@@ -64,32 +62,10 @@ class User(SoftDeleteMixin, Base):
         nullable=False, 
         default=UserStatus.ACTIVE
     )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        default=utcnow,
-        nullable=False,
-    )
-    updated_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True),
-        default=utcnow,
-        onupdate=utcnow,
-        nullable=True,
-    )
 
-    created_by_id: Mapped[int | None] = mapped_column(
-        BigInteger, 
-        ForeignKey("users.id", ondelete="RESTRICT"), 
-        nullable=True,
-    )
-    updated_by_id: Mapped[int | None] = mapped_column(
-        BigInteger, 
-        ForeignKey("users.id", ondelete="RESTRICT"), 
-        nullable=True,
-    )
-
-    created_by: Mapped["User"] = relationship(foreign_keys=[created_by_id], remote_side=[id])
-    updated_by: Mapped["User"] = relationship(foreign_keys=[updated_by_id], remote_side=[id])
-    deleted_by: Mapped["User"] = relationship(foreign_keys="User.deleted_by_id", remote_side="User.id")
+    created_by: Mapped["User"] = relationship(foreign_keys="User.created_by_id", remote_side="User.id") # type: ignore
+    updated_by: Mapped["User"] = relationship(foreign_keys="User.updated_by_id", remote_side="User.id") # type: ignore
+    deleted_by: Mapped["User"] = relationship(foreign_keys="User.deleted_by_id", remote_side="User.id") # type: ignore
     
     roles_assigned: Mapped[list["UserRole"]] = relationship( # type: ignore
         "UserRole",

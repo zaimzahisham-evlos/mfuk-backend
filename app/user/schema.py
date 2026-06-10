@@ -52,6 +52,10 @@ class UserUpdate(UserUpdateRequest):
     deleted_by_id: Optional[int] = Field(default=None, description="The ID of the user who deleted the user")
     deleted_at: Optional[datetime] = Field(default=None, description="The date and time the user was deleted")
 
+class UserRoleCode(BaseModel):
+    id: int
+    role_code: str
+
 class UserResponse(UserBase):
     id: int
     created_at: datetime = Field(description="The date and time the user was created")
@@ -60,7 +64,7 @@ class UserResponse(UserBase):
     updated_by_id: Optional[int] = Field(default=None, description="The ID of the user who updated the user")
     deleted_at: Optional[datetime] = Field(default=None, description="The date and time the user was deleted")
     deleted_by_id: Optional[int] = Field(default=None, description="The ID of the user who deleted the user")
-    role_codes: list[dict] = Field(default_factory=list, description="The codes of the roles assigned to the user")
+    role_codes: list[UserRoleCode] = Field(default_factory=list, description="The codes of the roles assigned to the user")
     model_config = ConfigDict(from_attributes=True) # this allows us to access attributes by dot notation like user.id instead of user["id"]
 
 

@@ -10,7 +10,7 @@ test_payload = {
 def assert_role_created(response, payload):
     assert response.status_code == 201
     assert response.json()["role_code"] == payload["role_code"].upper()
-    assert response.json()["role_name"] == payload["role_name"].title()
+    assert response.json()["role_name"] == payload["role_name"]
     assert response.json()["auth_required"] is True
     assert response.json()["is_system_role"] is False
     assert response.json()["status"] == "Active"

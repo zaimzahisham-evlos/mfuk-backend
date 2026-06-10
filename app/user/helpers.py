@@ -1,6 +1,8 @@
 from ..user.models import UserStatus, UserType
 from ..user.schema import UserCreate, UserUpdate
 from ..core.exceptions import BadRequestError
+from ..user.schema import UserRoleCode, UserResponse
+from ..user.models import User
 
 nullable_pwd_user_types = [UserType.SYSTEM, UserType.ROBOT, UserType.PLC]
 
@@ -35,3 +37,11 @@ def validate_auth_on_update(user, updates: UserUpdate) -> None:
     # deleted users must not keep password hash per DB constraint
     if status_update == UserStatus.DELETED and password_hash_exists:
         raise BadRequestError("Deleted users must not keep password hash")
+
+def to_user_response(user: User) -> UserResponse:
+    # role can be None even if the user role is active if role is deleted
+    roles = [user_role.role for user_role in user.roles_assigned if user_role.role is not None]
+    user_roles = [UserRoleCode(id=role.id, role_code=role.role_code) for role in roles]
+    dto = UserResponse.model_validate(user)
+    dto.role_codes = user_roles
+    return dto

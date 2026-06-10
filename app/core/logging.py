@@ -7,6 +7,7 @@ class LogLevel(StrEnum):
     warning = "WARNING"
     error = "ERROR"
     critical = "CRITICAL"
+    exception = "EXCEPTION"
 
 LOG_FORMAT_DEBUG = "[%(levelname)s] - %(asctime)s: %(pathname)s:%(funcName)s:%(lineno)d - %(message)s"
 

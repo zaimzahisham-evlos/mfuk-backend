@@ -4,7 +4,7 @@ from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, BigInteger,
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from enum import Enum
 
-from app.db.mixins import SoftDeleteMixin
+from app.db.mixins import AuditMixin
 from app.user.models import User
 
 from ..db.models import Base
@@ -28,7 +28,7 @@ class PermissionStatus(str, Enum):
     DELETED = "Deleted"
     DEPRECATED = "Deprecated"
 
-class Permission(SoftDeleteMixin, Base):
+class Permission(AuditMixin, Base):
     __tablename__ = "permissions"
     __table_args__ = (
         Index(
@@ -70,32 +70,6 @@ class Permission(SoftDeleteMixin, Base):
         nullable=False,
         default=PermissionStatus.ACTIVE
     )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        default=utcnow,
-        nullable=False,
-    )
-    updated_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True),
-        default=None,
-        onupdate=utcnow,
-        nullable=True,
-    )
-
-    created_by_id: Mapped[int | None] = mapped_column(
-        BigInteger, 
-        ForeignKey("users.id", ondelete="RESTRICT"), 
-        nullable=True,
-    )
-    updated_by_id: Mapped[int | None] = mapped_column(
-        BigInteger, 
-        ForeignKey("users.id", ondelete="RESTRICT"), 
-        nullable=True,
-    )
-
-    created_by: Mapped["User"] = relationship("User", foreign_keys=[created_by_id], overlaps="updated_by, deleted_by")
-    updated_by: Mapped["User"] = relationship("User", foreign_keys=[updated_by_id], overlaps="created_by, deleted_by")
-    deleted_by: Mapped["User"] = relationship("User", foreign_keys="Permission.deleted_by_id", overlaps="created_by, updated_by")
 
     role_links: Mapped[list["RolePermission"]] = relationship("RolePermission", back_populates="permission")
     
@@ -108,7 +82,7 @@ class RoleStatus(str, Enum):
     DELETED = "Deleted"
     SUSPENDED = "Suspended"
 
-class Role(SoftDeleteMixin, Base):
+class Role(AuditMixin, Base):
     __tablename__ = "roles"
     __table_args__ = (
         Index(
@@ -139,31 +113,7 @@ class Role(SoftDeleteMixin, Base):
         default=RoleStatus.ACTIVE
     )
     is_system_role: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        default=utcnow,
-        nullable=False,
-    )
-    updated_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True),
-        default=None,
-        onupdate=utcnow,
-        nullable=True,
-    )
-    created_by_id: Mapped[int | None] = mapped_column(
-        BigInteger, 
-        ForeignKey("users.id", ondelete="RESTRICT"), 
-        nullable=True,
-    )
-    updated_by_id: Mapped[int | None] = mapped_column(
-        BigInteger, 
-        ForeignKey("users.id", ondelete="RESTRICT"), 
-        nullable=True,
-    )
-    created_by: Mapped["User"] = relationship("User", foreign_keys=[created_by_id], overlaps="updated_by, deleted_by")
-    updated_by: Mapped["User"] = relationship("User", foreign_keys=[updated_by_id], overlaps="created_by, deleted_by")
-    deleted_by: Mapped["User"] = relationship("User", foreign_keys="Role.deleted_by_id", overlaps="created_by, updated_by")
-    
+
     permission_links: Mapped[list["RolePermission"]] = relationship("RolePermission", back_populates="role")
     user_links: Mapped[list["UserRole"]] = relationship("UserRole", back_populates="role")
 
@@ -180,7 +130,7 @@ class RolePermissionEffect(str, Enum):
     ALLOW = "Allow"
     DENY = "Deny"
 
-class RolePermission(SoftDeleteMixin, Base):
+class RolePermission(AuditMixin, Base):
     __tablename__ = "role_permissions"
     __table_args__ = (
         CheckConstraint(
@@ -229,30 +179,6 @@ class RolePermission(SoftDeleteMixin, Base):
     valid_from: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     valid_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        default=utcnow,
-        nullable=False,
-    )
-    updated_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True),
-        default=None,
-        onupdate=utcnow,
-        nullable=True,
-    )
-    created_by_id: Mapped[int | None] = mapped_column(
-        BigInteger, 
-        ForeignKey("users.id", ondelete="RESTRICT"), 
-        nullable=True,
-    )
-    updated_by_id: Mapped[int | None] = mapped_column(
-        BigInteger, 
-        ForeignKey("users.id", ondelete="RESTRICT"), 
-        nullable=True,
-    )
-    created_by: Mapped["User"] = relationship("User", foreign_keys=[created_by_id], overlaps="updated_by, deleted_by")
-    updated_by: Mapped["User"] = relationship("User", foreign_keys=[updated_by_id], overlaps="created_by, deleted_by")
-    deleted_by: Mapped["User"] = relationship("User", foreign_keys="RolePermission.deleted_by_id", overlaps="created_by, updated_by")
 
     def __repr__(self) -> str:
         return f"RolePermission(id={self.id}, role_id={self.role_id}, permission_id={self.permission_id}, priority={self.priority})"
@@ -265,7 +191,7 @@ class UserRoleStatus(str, Enum):
     SUSPENDED = "Suspended"
     REVOKED = "Revoked"
 
-class UserRole(SoftDeleteMixin, Base):
+class UserRole(AuditMixin, Base):
     __tablename__ = "user_roles"
     __table_args__ = (
         CheckConstraint(
@@ -313,29 +239,8 @@ class UserRole(SoftDeleteMixin, Base):
     valid_from: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     valid_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        default=utcnow,
-        nullable=False,
-    )
-    updated_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True),
-        default=None,
-        onupdate=utcnow,
-        nullable=True,
-    )
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     assigned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    created_by_id: Mapped[int | None] = mapped_column(
-        BigInteger, 
-        ForeignKey("users.id", ondelete="RESTRICT"), 
-        nullable=True,
-    )
-    updated_by_id: Mapped[int | None] = mapped_column(
-        BigInteger, 
-        ForeignKey("users.id", ondelete="RESTRICT"), 
-        nullable=True,
-    )
     revoked_by_id: Mapped[int | None] = mapped_column(
         BigInteger, 
         ForeignKey("users.id", ondelete="RESTRICT"), 
@@ -346,14 +251,7 @@ class UserRole(SoftDeleteMixin, Base):
         ForeignKey("users.id", ondelete="RESTRICT"), 
         nullable=True,
     )
-    created_by: Mapped["User"] = relationship(
-        foreign_keys=[created_by_id],
-        overlaps="roles_assigned, updated_by, revoked_by, assigned_by, deleted_by"
-    )
-    updated_by: Mapped["User"] = relationship(
-        foreign_keys=[updated_by_id],
-        overlaps="roles_assigned, created_by, revoked_by, assigned_by, deleted_by"
-    )
+
     revoked_by: Mapped["User"] = relationship(
         foreign_keys=[revoked_by_id],
         overlaps="roles_assigned, created_by, updated_by, assigned_by, deleted_by"
@@ -361,10 +259,6 @@ class UserRole(SoftDeleteMixin, Base):
     assigned_by: Mapped["User"] = relationship(
         foreign_keys=[assigned_by_id],
         overlaps="roles_assigned, created_by, updated_by, revoked_by, deleted_by"
-    )
-    deleted_by: Mapped["User"] = relationship(
-        foreign_keys="UserRole.deleted_by_id", 
-        overlaps="roles_assigned, created_by, updated_by, revoked_by, assigned_by"
     )
     
     def __repr__(self) -> str:

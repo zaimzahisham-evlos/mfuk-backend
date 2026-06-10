@@ -14,10 +14,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db, AsyncSessionLocal
 
-async def seed_initial_permissions(db: AsyncSession | None = None):
-    async def _seed(db: AsyncSession):
+async def seed_initial_permissions(db: AsyncSession | None = None, modules: list[str] | None = None):
+    async def _seed(db: AsyncSession, modules: list[str] | None = None):
         rbac_service = RbacService(db)
-        modules = ["user", "permission", "role", "role_permission", "user_role"]
+        if modules is None:
+            modules = [
+                "user", "permission", "role", "role_permission", "user_role",
+                "machine", "sku", "recipe", "recipe_version", "repository_image",
+            ]
         for module in modules:
             for permission in PermissionCategory:
                 module_name = module.split("_")
@@ -43,10 +47,10 @@ async def seed_initial_permissions(db: AsyncSession | None = None):
         
         
     if db:
-        await _seed(db)
+        await _seed(db, modules)
     else:
         async with AsyncSessionLocal() as session:
-            await _seed(session)
+            await _seed(session, modules)
 
 if __name__ == "__main__":
     asyncio.run(seed_initial_permissions())

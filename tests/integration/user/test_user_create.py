@@ -18,6 +18,10 @@ def assert_user_created(response, payload):
     assert response.json()["user_type"] == payload["user_type"].value
     assert response.json()["status"] == payload["status"].value
     assert response.json()["created_by_id"] is not None
+    assert response.json()["created_at"] is not None
+    assert response.json()["updated_at"] is None
+    assert response.json()["deleted_at"] is None
+    assert response.json()["deleted_by_id"] is None
 
 def assert_user_exists(response, payload):
     assert response.status_code == 200

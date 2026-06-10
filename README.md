@@ -1,30 +1,32 @@
 # Overview 
-This is a FastAPI template inspired by Django structure and features. 
-- SQLAlchemy is used to replace Django's ORM
-- Alembic is used to mimic Django's Migration
+This is a MFUK FastAPI Backend inspired by Django structure and features. 
+- SQLAlchemy is used as Database ORM
+- Alembic is used for Database Migration
 - [Makefile](https://makefiletutorial.com) is used to centralize commands
 - UV to handle project environment
+- SeaweedFS as Object Storage System to handle images and files
 
-## Prerequisite
+## Prerequisites
 *click for installation guide/site*
 1. [UV](https://docs.astral.sh/uv/getting-started/installation/)
 2. [Docker](https://www.docker.com/products/docker-desktop/)
 
 ## Architecture
 ```
+Makefile                    <-- CLI tool for administrative commands
 project/
     |- main.py
-    |- core/    --> Project's core files
-        |- config.py
-        |- routes.py        --> Django-inspired project root urls.py
-    |- app/
-        |- models.py        --> Django-inspired models.py
-        |- repository.py    --> models related functions
-        |- schema.py        --> Django-inspired serializers.py
-        |- services.py      --> Django-inspired views.py
-        |- routes.py        --> Django-inspired app urls.py
+    |- core/                <-- Project's core files
+        |- config.py        <-- Project configurations and environment settings
+        |- routes.py        <-- Global URL routing/declarations
+    |- app/                 <-- Application Component/Module (created via make createmodule)
+        |- models.py        <-- Database blueprints / Data Layer
+        |- repository.py    <-- Data Access Layer
+        |- schema.py        <-- Data Validation/Serialization Layer
+        |- services.py      <-- Logic Layer
+        |- routes.py        <-- App-level URL routing/declarations
 
-tests/  --> project's test
+tests/                      <-- project's test
 ```
 
 
@@ -44,9 +46,8 @@ Once you cloned this repo, you'll need to run the following command:
 ### 2. Handling Database Migrations
 #### Upgrading models/tables
 ```bash
-    make migrate -m "migration_name"
+    make migrate migration_name
 ```
-note that if you created, you have to register the model at `app/db/migrations/env.py` first before running this command
 
 #### Rolling back the last migration
 ```bash
