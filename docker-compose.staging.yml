@@ -1,0 +1,106 @@
+services:
+    db:
+      container_name: postgres_db
+      image: postgres:16
+      environment:
+        - POSTGRES_USER=${POSTGRES_USER}
+        - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+        - POSTGRES_DB=${POSTGRES_DB}
+      volumes:
+        - postgres_data:/var/lib/postgresql/data
+      networks:
+        - default
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+        interval: 5s
+        timeout: 5s
+        retries: 5
+
+    backend:
+      container_name: fastapi_backend
+      image: zaimevlos/mfuk-backend:testing
+      ports:
+        - "8000:8000"   # PROTECTS the .venv created by 'uv sync' during build
+      depends_on:
+        db:
+          condition: service_healthy
+        seaweed-s3:
+          condition: service_healthy
+      env_file:
+        - .env
+      networks:
+        - default
+
+    redis:
+      image: redis:latest
+      container_name: redis
+      command: ["redis-server", "--appendonly", "yes", "--save", "60 1000"]
+      volumes:
+        - redis_data:/data
+      networks:
+        - default
+
+    seaweed-master:
+      image: chrislusf/seaweedfs:latest
+      command: "master -ip=seaweed-master ip.bind=0.0.0.0 -mdir=/data"
+      volumes:
+        - seaweed_master_data:/data
+      networks:
+        - default
+
+    seaweed-volume:
+      image: chrislusf/seaweedfs:latest
+      command: "volume -master=seaweed-master:9333 -ip=seaweed-volume ip.bind=0.0.0.0 -dir=/data -max=100"
+      depends_on:
+        - seaweed-master
+      volumes:
+        - seaweed_volume_data:/data
+      networks:
+        - default
+      
+    seaweed-filer:
+      image: chrislusf/seaweedfs:latest
+      command: "filer -master=seaweed-master:9333 -ip=seaweed-filer ip.bind=0.0.0.0"
+      depends_on:
+        - seaweed-master
+        - seaweed-volume
+      volumes:
+        - seaweed_filer_data:/data
+      networks:
+        - default
+      healthcheck:
+        test: ["CMD-SHELL", "curl -sf http://127.0.0.1:8888/ >/dev/null || test $$? -eq 22"]
+        interval: 5s
+        timeout: 5s
+        retries: 12
+        start_period: 30s
+
+    seaweed-s3:
+      image: chrislusf/seaweedfs:latest
+      command: "s3 -filer=seaweed-filer:8888 -port=8333 -config=/etc/seaweedfs/s3.conf"
+      depends_on:
+        seaweed-filer:
+          condition: service_healthy
+      ports:
+        - "8333:8333"   # S3 endpoint for app/frontend
+      volumes:
+        - ./s3.conf:/etc/seaweedfs/s3.conf:ro
+      networks:
+        - default
+      healthcheck:
+        test: ["CMD-SHELL", "code=$$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8333/); test \"$$code\" -ge 200 -o \"$$code\" -eq 403"]
+        interval: 5s
+        timeout: 5s
+        retries: 12
+        start_period: 45s
+
+volumes:
+  postgres_data:
+  redis_data:
+  seaweed_master_data:
+  seaweed_volume_data:
+  seaweed_filer_data:
+
+networks:
+  default:
+    driver: bridge
