@@ -4,14 +4,14 @@ pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("seeded_recipes")]
 
 async def get_test_payload(client):
     response = await client.get("/production/skus")
-    skus = response.json()
+    skus = response.json()["items"]
     response = await client.get("/production/machines")
-    machines = response.json()
+    machines = response.json()["items"]
     return {
         "recipe_code": "TEST_RECIPE_11",
         "recipe_name": "Test Recipe 11",
-        "sku_id": skus[1]["id"],
-        "machine_id": machines[1]["id"],
+        "sku_id": skus[0]["id"],
+        "machine_id": machines[0]["id"],
         "status": "Active",
         "description": "Test Recipe 11 description"
     }

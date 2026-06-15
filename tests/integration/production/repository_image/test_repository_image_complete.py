@@ -30,16 +30,16 @@ async def test_init_upload_complete_one_image(authorized_client_admin, fake_stor
         f"/production/recipe-versions/{DRAFT_RECIPE_VERSION_CODE}/repository-images",
     )
     assert response.status_code == 200
-    assert len(response.json()) == 1
-    assert response.json()[0]["original_filename"] == "ref1.jpg"
-    assert response.json()[0]["status"] == "Active"
-    assert response.json()[0]["byte_size"] == 1024
-    assert response.json()[0]["content_type"] == "image/jpeg"
-    assert response.json()[0]["download_url"].startswith("http://fake-storage/download/")
-    assert response.json()[0]["bucket"]
-    assert response.json()[0]["object_key"]
-    assert response.json()[0]["width"] == 1920
-    assert response.json()[0]["height"] == 1080
+    assert len(response.json()["items"]) == 1
+    assert response.json()["items"][0]["original_filename"] == "ref1.jpg"
+    assert response.json()["items"][0]["status"] == "Active"
+    assert response.json()["items"][0]["byte_size"] == 1024
+    assert response.json()["items"][0]["content_type"] == "image/jpeg"
+    assert response.json()["items"][0]["download_url"].startswith("http://fake-storage/download/")
+    assert response.json()["items"][0]["bucket"]
+    assert response.json()["items"][0]["object_key"]
+    assert response.json()["items"][0]["width"] == 1920
+    assert response.json()["items"][0]["height"] == 1080
 
 async def test_complete_without_upload(authorized_client_admin, fake_storage):
     response = await init_repository_images(
@@ -173,7 +173,7 @@ async def test_complete_bulk_two_images(authorized_client_admin, fake_storage):
         f"/production/recipe-versions/{DRAFT_RECIPE_VERSION_CODE}/repository-images"
     )
     assert list_resp.status_code == 200
-    by_id = {row["id"]: row for row in list_resp.json()}
+    by_id = {row["id"]: row for row in list_resp.json()["items"]}
     assert by_id[items[0]["id"]]["width"] == 100
     assert by_id[items[1]["id"]]["height"] == 400
 

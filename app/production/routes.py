@@ -2,6 +2,7 @@ import logging
 from fastapi import APIRouter, Response, status, Depends, Query
 from app.auth.dependencies import require_permission
 from app.core.exceptions import ForbiddenError
+from app.core.pagination import PaginatedResponse, PaginationParams
 from app.core.utils import utcnow
 from app.rbac.services import RbacService
 from app.user.schema import UserResponse
@@ -14,15 +15,16 @@ from ..db.session import get_db
 router = APIRouter()
 
 """Machines"""
-@router.get("/machines", response_model=list[MachineResponse])
+@router.get("/machines", response_model=PaginatedResponse[MachineResponse])
 async def get_machines(
     current_user: Annotated[UserResponse, Depends(require_permission("MACHINE_VIEW"))],
     db: Annotated[AsyncSession, Depends(get_db)],
+    pagination: Annotated[PaginationParams, Depends()],
     include_deleted: bool = False,
     statuses: Annotated[Sequence[MachineStatus] | None, Query()] = None,
 ):
     logging.info("Getting machines")
-    return await ProductionService(db).get_machines(include_deleted, statuses)
+    return await ProductionService(db).get_machines(include_deleted, statuses, pagination)
 
 @router.get("/machines/{machine_code}", response_model=MachineResponse)
 async def get_machine_by_code(
@@ -70,15 +72,16 @@ async def delete_machine(
     return await ProductionService(db).delete_machine(machine_code, current_user.id)
 
 """SKUs"""
-@router.get("/skus", response_model=list[SKUResponse])
+@router.get("/skus", response_model=PaginatedResponse[SKUResponse])
 async def get_skus(
     current_user: Annotated[UserResponse, Depends(require_permission("SKU_VIEW"))],
     db: Annotated[AsyncSession, Depends(get_db)],
+    pagination: Annotated[PaginationParams, Depends()],
     include_deleted: bool = False,
     statuses: Annotated[Sequence[SKUStatus] | None, Query()] = None,
 ):
     logging.info("Getting SKUs")
-    return await ProductionService(db).get_skus(include_deleted, statuses)
+    return await ProductionService(db).get_skus(include_deleted, statuses, pagination)
 
 @router.get("/skus/{sku_code}", response_model=SKUResponse)
 async def get_sku_by_code(
@@ -126,17 +129,18 @@ async def delete_sku(
     return await ProductionService(db).delete_sku(sku_code, current_user.id)
 
 """Recipes"""
-@router.get("/recipes", response_model=list[RecipeResponse])
+@router.get("/recipes", response_model=PaginatedResponse[RecipeResponse])
 async def get_recipes(
     current_user: Annotated[UserResponse, Depends(require_permission("RECIPE_VIEW"))],
     db: Annotated[AsyncSession, Depends(get_db)],
+    pagination: Annotated[PaginationParams, Depends()],
     include_deleted: bool = False,
     statuses: Annotated[Sequence[RecipeStatus] | None, Query()] = None,
     sku_id: Annotated[int | None, Query()] = None,
     machine_id: Annotated[int | None, Query()] = None,
 ):
     logging.info("Getting recipes")
-    return await ProductionService(db).get_recipes(include_deleted, statuses, sku_id, machine_id)
+    return await ProductionService(db).get_recipes(include_deleted, statuses, sku_id, machine_id, pagination)
 
 @router.get("/recipes/{recipe_code}", response_model=RecipeResponse)
 async def get_recipe_by_code(
@@ -185,16 +189,17 @@ async def delete_recipe(
     return await ProductionService(db).delete_recipe(recipe_code, current_user.id)
 
 """Recipe Versions"""
-@router.get("/recipes/{recipe_code}/versions", response_model=list[RecipeVersionResponse])
+@router.get("/recipes/{recipe_code}/versions", response_model=PaginatedResponse[RecipeVersionResponse])
 async def get_recipe_versions(
     recipe_code: str,
     current_user: Annotated[UserResponse, Depends(require_permission("RECIPE_VERSION_VIEW"))],
     db: Annotated[AsyncSession, Depends(get_db)],
+    pagination: Annotated[PaginationParams, Depends()],
     include_deleted: bool = False,
-    statuses: Annotated[Sequence[RecipeVersionStatus] | None, Query()] = None,
+    statuses: Annotated[Sequence[RecipeVersionStatus] | None, Query()] = [RecipeVersionStatus.RELEASED],
 ):
     logging.info(f"Getting recipe versions for recipe with code {recipe_code}")
-    return await ProductionService(db).get_recipe_versions(recipe_code, include_deleted, statuses)
+    return await ProductionService(db).get_recipe_versions(recipe_code, include_deleted, statuses, pagination)
 
 @router.get("/recipe-versions/{recipe_version_code}", response_model=RecipeVersionResponse)
 async def get_recipe_version_by_code(
@@ -259,17 +264,18 @@ async def delete_recipe_version(
     return await ProductionService(db).delete_recipe_version(recipe_version_code, current_user.id)
 
 """Repository Images"""
-@router.get("/recipe-versions/{recipe_version_code}/repository-images", response_model=list[RepositoryImageResponse])
+@router.get("/recipe-versions/{recipe_version_code}/repository-images", response_model=PaginatedResponse[RepositoryImageResponse])
 async def get_repository_images(
     recipe_version_code: str,
     current_user: Annotated[UserResponse, Depends(require_permission("REPOSITORY_IMAGE_VIEW"))],
     db: Annotated[AsyncSession, Depends(get_db)],
+    pagination: Annotated[PaginationParams, Depends()],
     include_deleted: bool = False,
     statuses: Annotated[Sequence[RepositoryImageStatus] | None, Query()] = None,
     sku_id: Annotated[int | None, Query()] = None,
 ):
     logging.info(f"Getting repository images for recipe version with code {recipe_version_code}")
-    return await ProductionService(db).get_repository_images(recipe_version_code, include_deleted, statuses, sku_id)
+    return await ProductionService(db).get_repository_images(recipe_version_code, include_deleted, statuses, sku_id, pagination)
 
 @router.post(
     "/recipe-versions/{recipe_version_code}/repository-images/init", 

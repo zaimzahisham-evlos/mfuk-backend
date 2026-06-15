@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
+from app.core.pagination import PaginatedResponse, PaginationParams
 from app.core.utils import utcnow
 from app.rbac.services import RbacService
 from app.user.models import UserStatus
@@ -6,7 +7,7 @@ import logging
 from ..user.services import UserService
 from ..user.schema import UserCreateRequest, UserResponse, UserCreate, UserUpdate, USER404, USER400, USERPATCHDELETE, UserUpdateRequest
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Annotated
+from typing import Annotated, Sequence
 from ..db.session import get_db
 from ..core.exceptions import ForbiddenError
 from ..auth.dependencies import CurrentUser, require_permission
@@ -14,14 +15,17 @@ from ..auth.schema import INVALID_OR_EXPIRED_TOKEN
 
 router = APIRouter()
 
-@router.get("/", response_model=list[UserResponse])
+@router.get("/", response_model=PaginatedResponse[UserResponse])
 # @limiter.limit("100/minute")
 async def get_users(
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[UserResponse, Depends(require_permission("USER_VIEW"))]
+    current_user: Annotated[UserResponse, Depends(require_permission("USER_VIEW"))],
+    pagination: Annotated[PaginationParams, Depends()],
+    include_deleted: bool = False,
+    statuses: Annotated[Sequence[UserStatus] | None, Query()] = None,
 ):
     logging.info("Getting users")
-    return await UserService(db).get_users()
+    return await UserService(db).get_users(include_deleted, statuses, pagination)
 
 
 @router.get("/me", response_model=UserResponse, responses={**INVALID_OR_EXPIRED_TOKEN})

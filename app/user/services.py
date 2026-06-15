@@ -1,5 +1,7 @@
 import logging
+from typing import Sequence
 from sqlalchemy.exc import IntegrityError
+from app.core.pagination import PaginatedResponse, PaginationParams, to_paginated_response
 from app.core.utils import utcnow
 from app.user.helpers import to_user_response, validate_auth_on_create, validate_auth_on_update
 from ..user.models import UserStatus
@@ -13,9 +15,16 @@ class UserService:
         self.repo = UserRepository(db)
         self.db = db
 
-    async def get_users(self) -> list[UserResponse]:
-        users = await self.repo.get_users()
-        return [to_user_response(user) for user in users]
+    async def get_users(
+        self, 
+        include_deleted: bool = False, 
+        statuses: Sequence[UserStatus] | None = None, 
+        pagination: PaginationParams | None = None
+    ) -> PaginatedResponse[UserResponse]:
+        total = await self.repo.count_users(include_deleted, statuses, pagination.search if pagination else None)
+        users = await self.repo.get_users(include_deleted, statuses, pagination)
+        items = [to_user_response(user) for user in users]
+        return to_paginated_response(items, total, pagination)
 
     async def get_user_by_id(self, user_id: int, status: UserStatus | None = None) -> UserResponse:
         user = await self.repo.get_user_by_id(user_id, status)

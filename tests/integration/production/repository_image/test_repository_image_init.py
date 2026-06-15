@@ -157,10 +157,10 @@ async def test_init_max_repository_images_per_recipe_version(authorized_client_a
 
     # get repository images. Should succeed with 200 with 99 repository images.
     response = await authorized_client_admin.get(
-        f"/production/recipe-versions/{DRAFT_RECIPE_VERSION_CODE}/repository-images",
+        f"/production/recipe-versions/{DRAFT_RECIPE_VERSION_CODE}/repository-images?limit=100",
     )
     assert response.status_code == 200
-    assert len(response.json()) == 99
+    assert len(response.json()["items"]) == 99
 
     # add more images, less than max allowed in one request but will exceed max allowed in total. Should fail with 400.
     response = await authorized_client_admin.post(
@@ -194,10 +194,10 @@ async def test_init_max_repository_images_per_recipe_version(authorized_client_a
 
     # get repository images. Should succeed with 200 with 100 repository images.
     response = await authorized_client_admin.get(
-        f"/production/recipe-versions/{DRAFT_RECIPE_VERSION_CODE}/repository-images",
+        f"/production/recipe-versions/{DRAFT_RECIPE_VERSION_CODE}/repository-images?limit=100",
     )
     assert response.status_code == 200
-    assert len(response.json()) == 100
+    assert len(response.json()["items"]) == 100
 
 async def test_init_repository_images_with_same_original_filename(authorized_client_admin):
     # Add two repository images with the same original filename. 

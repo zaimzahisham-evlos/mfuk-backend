@@ -36,7 +36,7 @@ async def test_get_users_exclude_deleted(authorized_client_user_manager):
 
     response = await authorized_client_user_manager.get("/users/")
     assert response.status_code == 200
-    assert len(response.json()) == 3 
+    assert len(response.json()["items"]) == 3 
     # 2 users + 1 new user (superadmin seeded in db_session, user_manager in param + new user)
 
     response = await authorized_client_user_manager.delete(f"/users/{payload["user_code"]}")
@@ -44,10 +44,10 @@ async def test_get_users_exclude_deleted(authorized_client_user_manager):
 
     response = await authorized_client_user_manager.get("/users/")
     assert response.status_code == 200
-    assert len(response.json()) == 2
-    assert response.json()[0]["user_code"] == "SUPERADMIN" # first user because it is seeded in db_session
-    assert response.json()[0]["full_name"] == "Super Admin"
-    assert response.json()[0]["status"] == UserStatus.ACTIVE.value
+    assert len(response.json()["items"]) == 2
+    assert response.json()["items"][-1]["user_code"] == "SUPERADMIN" # first user because it is seeded in db_session
+    assert response.json()["items"][-1]["full_name"] == "Super Admin"
+    assert response.json()["items"][-1]["status"] == UserStatus.ACTIVE.value
 
 async def test_get_user_by_user_code(authorized_client_user_manager):
     response = await authorized_client_user_manager.get("/users/usermanager")
@@ -81,13 +81,37 @@ async def test_user_no_role_get_user_by_user_code(authorized_client_human_no_rol
 async def test_superadmin_get_users(authorized_client_superadmin):
     response = await authorized_client_superadmin.get("/users/")
     assert response.status_code == 200
-    assert len(response.json()) == 1 # only superadmin user because it is the parameter
-    assert response.json()[0]["user_code"] == "SUPERADMIN"
-    assert response.json()[0]["full_name"] == "Super Admin"
-    assert response.json()[0]["status"] == UserStatus.ACTIVE.value
+    assert len(response.json()["items"]) == 1 # only superadmin user because it is the parameter
+    assert response.json()["items"][0]["user_code"] == "SUPERADMIN"
+    assert response.json()["items"][0]["full_name"] == "Super Admin"
+    assert response.json()["items"][0]["status"] == UserStatus.ACTIVE.value
 
 async def test_superadmin_get_user_by_user_code(authorized_client_superadmin, authorized_client_user_manager):
     response = await authorized_client_superadmin.get("/users/usermanager")
     assert response.status_code == 200
     assert response.json()["user_code"] == "USERMANAGER"
     assert response.json()["full_name"] == "User Manager"
+
+async def test_get_users_with_pagination(authorized_client_admin):
+    response = await authorized_client_admin.get("/users/?page=1&limit=1")
+    assert response.status_code == 200
+    assert response.json()["total"] == 2
+    assert response.json()["page"] == 1
+    assert response.json()["limit"] == 1
+    assert response.json()["total_pages"] == 2
+    assert len(response.json()["items"]) == 1
+
+async def test_get_users_search_not_limited_by_page(authorized_client_admin):
+    response = await authorized_client_admin.get("/users/?search=super&page=1&limit=1")
+    assert response.status_code == 200
+    assert response.json()["total"] == 1
+    assert response.json()["items"][0]["user_code"] == "SUPERADMIN"
+    assert response.json()["items"][0]["full_name"] == "Super Admin"
+    assert response.json()["items"][0]["status"] == UserStatus.ACTIVE.value
+
+    response = await authorized_client_admin.get("/users/?search=admin&page=1&limit=1")
+    assert response.status_code == 200
+    assert response.json()["total"] == 2
+    assert response.json()["items"][0]["user_code"] == "ADMIN"
+    assert response.json()["items"][0]["full_name"] == "Admin"
+    assert response.json()["items"][0]["status"] == UserStatus.ACTIVE.value

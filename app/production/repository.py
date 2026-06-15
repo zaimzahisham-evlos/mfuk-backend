@@ -2,6 +2,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import selectinload
+from app.core.pagination import PaginationParams, build_list_query, count_query, fetch_paginated
 from app.core.utils import set_attributes
 from app.production.models import *
 from typing import Sequence
@@ -18,12 +19,37 @@ class ProductionRepository:
             selectinload(Machine.recipes),
         )
 
-    async def get_machines(self, include_deleted: bool = False, statuses: Sequence[MachineStatus] | None = None) -> list[Machine]:
-        query = select(Machine).options(*self._machine_load_options())
-        if statuses:
-            query = query.where(Machine.status.in_(statuses))
-        result = await self.db.execute(query, execution_options=include_deleted_execution_options(include_deleted))
-        return list(result.scalars().all())
+    async def get_machines(
+        self, 
+        include_deleted: bool = False, 
+        statuses: Sequence[MachineStatus] | None = None,
+        pagination: PaginationParams | None = None,
+    ) -> list[Machine]:
+        query = build_list_query(
+            Machine,
+            load_options=self._machine_load_options(),
+            statuses=statuses,
+            status_column=Machine.status,
+            search=pagination.search if pagination else None,
+            search_columns=(Machine.machine_name, Machine.machine_code),
+            order_by=(Machine.created_at.desc(), Machine.id.desc()),
+        )
+        return await fetch_paginated(self.db, query, include_deleted=include_deleted, pagination=pagination)
+
+    async def count_machines(
+        self, 
+        include_deleted: bool = False, 
+        statuses: Sequence[MachineStatus] | None = None,
+        search: str | None = None,
+    ) -> int:
+        query = build_list_query(
+            Machine,
+            statuses=statuses,
+            status_column=Machine.status,
+            search=search,
+            search_columns=(Machine.machine_name, Machine.machine_code),
+        )
+        return await count_query(self.db, query, include_deleted=include_deleted)
 
     async def get_machine_by_id(self, machine_id: int) -> Machine | None:
         query = select(Machine).where(Machine.id == machine_id).options(*self._machine_load_options())
@@ -64,12 +90,38 @@ class ProductionRepository:
             selectinload(SKU.recipes),
         )
 
-    async def get_skus(self, include_deleted: bool = False, statuses: Sequence[SKUStatus] | None = None) -> list[SKU]:
-        query = select(SKU).options(*self._sku_load_options())
-        if statuses:
-            query = query.where(SKU.status.in_(statuses))
-        result = await self.db.execute(query, execution_options=include_deleted_execution_options(include_deleted))
-        return list(result.scalars().all())
+    async def get_skus(
+        self, 
+        include_deleted: bool = False, 
+        statuses: Sequence[SKUStatus] | None = None,
+        pagination: PaginationParams | None = None,
+    ) -> list[SKU]:
+        query = build_list_query(
+            SKU,
+            load_options=self._sku_load_options(),
+            statuses=statuses,
+            status_column=SKU.status,
+            search=pagination.search if pagination else None,
+            search_columns=(SKU.sku_name, SKU.sku_code),
+            order_by=(SKU.created_at.desc(), SKU.id.desc()),
+        )
+        return await fetch_paginated(self.db, query, include_deleted=include_deleted, pagination=pagination)
+
+    async def count_skus(
+        self, 
+        include_deleted: bool = False, 
+        statuses: Sequence[SKUStatus] | None = None,
+        search: str | None = None,
+    ) -> int:
+        query = build_list_query(
+            SKU,
+            statuses=statuses,
+            status_column=SKU.status,
+            search=search,
+            search_columns=(SKU.sku_name, SKU.sku_code),
+        )
+        return await count_query(self.db, query, include_deleted=include_deleted)
+
 
     async def get_sku_by_id(self, sku_id: int) -> SKU | None:
         query = select(SKU).where(SKU.id == sku_id).options(*self._sku_load_options())
@@ -118,16 +170,45 @@ class ProductionRepository:
         statuses: Sequence[RecipeStatus] | None = None,
         sku_id: int | None = None,
         machine_id: int | None = None,
+        pagination: PaginationParams | None = None,
     ) -> list[Recipe]:
-        query = select(Recipe).options(*self._recipe_load_options())
-        if statuses:
-            query = query.where(Recipe.status.in_(statuses))
+        query = build_list_query(
+            Recipe,
+            load_options=self._recipe_load_options(),
+            statuses=statuses,
+            status_column=Recipe.status,
+            search=pagination.search if pagination else None,
+            search_columns=(Recipe.recipe_name, Recipe.recipe_code),
+            order_by=(Recipe.created_at.desc(), Recipe.id.desc()),
+        )
         if sku_id:
             query = query.where(Recipe.sku_id == sku_id)
         if machine_id:
             query = query.where(Recipe.machine_id == machine_id)
-        result = await self.db.execute(query, execution_options=include_deleted_execution_options(include_deleted))
-        return list(result.scalars().all())
+
+        return await fetch_paginated(self.db, query, include_deleted=include_deleted, pagination=pagination)
+
+    async def count_recipes(
+        self, 
+        include_deleted: bool = False, 
+        statuses: Sequence[RecipeStatus] | None = None,
+        sku_id: int | None = None,
+        machine_id: int | None = None,
+        search: str | None = None,
+    ) -> int:
+        query = build_list_query(
+            Recipe,
+            statuses=statuses,
+            status_column=Recipe.status,
+            search=search,
+            search_columns=(Recipe.recipe_name, Recipe.recipe_code),
+        )
+        if sku_id:
+            query = query.where(Recipe.sku_id == sku_id)
+        if machine_id:
+            query = query.where(Recipe.machine_id == machine_id)
+        return await count_query(self.db, query, include_deleted=include_deleted)
+
 
     async def get_recipe_by_id(self, recipe_id: int) -> Recipe | None:
         query = (
@@ -182,17 +263,41 @@ class ProductionRepository:
         recipe_id: int, 
         include_deleted: bool = False, 
         statuses: Sequence[RecipeVersionStatus] | None = None,
+        pagination: PaginationParams | None = None,
     ) -> list[RecipeVersion]:
-        query = (
-            select(RecipeVersion)
-            .where(RecipeVersion.recipe_id == recipe_id)
-            .options(*self._recipe_version_load_options())
-            .order_by(RecipeVersion.version_no.desc())
+        query = build_list_query(
+            RecipeVersion,
+            load_options=self._recipe_version_load_options(),
+            statuses=statuses,
+            status_column=RecipeVersion.status,
+            search=pagination.search if pagination else None,
+            search_columns=(RecipeVersion.version_name, RecipeVersion.version_code),
+            extra_where=(
+                RecipeVersion.recipe_id == recipe_id,
+            ),
+            order_by=(RecipeVersion.version_no.desc(), RecipeVersion.id.desc()),
         )
-        if statuses:
-            query = query.where(RecipeVersion.status.in_(statuses))
-        result = await self.db.execute(query, execution_options=include_deleted_execution_options(include_deleted))
-        return list(result.scalars().all())
+
+        return await fetch_paginated(self.db, query, include_deleted=include_deleted, pagination=pagination)
+
+    async def count_recipe_versions(
+        self, 
+        recipe_id: int, 
+        include_deleted: bool = False, 
+        statuses: Sequence[RecipeVersionStatus] | None = None,
+        search: str | None = None,
+    ) -> int:
+        query = build_list_query(
+            RecipeVersion,
+            statuses=statuses,
+            status_column=RecipeVersion.status,
+            search=search,
+            search_columns=(RecipeVersion.version_name, RecipeVersion.version_code),
+            extra_where=(
+                RecipeVersion.recipe_id == recipe_id,
+            ),
+        )
+        return await count_query(self.db, query, include_deleted=include_deleted)
 
     async def get_recipe_version_by_id(self, recipe_version_id: int) -> RecipeVersion | None:
         query = (
@@ -248,16 +353,44 @@ class ProductionRepository:
         include_deleted: bool = False, 
         statuses: Sequence[RepositoryImageStatus] | None = None,
         sku_id: int | None = None,
+        pagination: PaginationParams | None = None,
     ) -> list[RepositoryImage]:
-        query = select(RepositoryImage).options(*self._repository_image_load_options())
+        query = build_list_query(
+            RepositoryImage,
+            load_options=self._repository_image_load_options(),
+            statuses=statuses,
+            status_column=RepositoryImage.status,
+            search=pagination.search if pagination else None,
+            search_columns=(RepositoryImage.original_filename,),
+            order_by=(RepositoryImage.created_at.desc(), RepositoryImage.id.desc()),
+        )
         if recipe_version_id:
             query = query.where(RepositoryImage.recipe_version_id == recipe_version_id)
-        if statuses:
-            query = query.where(RepositoryImage.status.in_(statuses))
         if sku_id:
             query = query.where(RepositoryImage.sku_id == sku_id)
-        result = await self.db.execute(query, execution_options=include_deleted_execution_options(include_deleted))
-        return list(result.scalars().all())
+
+        return await fetch_paginated(self.db, query, include_deleted=include_deleted, pagination=pagination)
+
+    async def count_repository_images(
+        self, 
+        recipe_version_id: int | None = None, 
+        include_deleted: bool = False, 
+        statuses: Sequence[RepositoryImageStatus] | None = None,
+        sku_id: int | None = None,
+        search: str | None = None,
+    ) -> int:
+        query = build_list_query(
+            RepositoryImage,
+            statuses=statuses,
+            status_column=RepositoryImage.status,
+            search=search,
+            search_columns=(RepositoryImage.original_filename, RepositoryImage.object_key),
+        )
+        if recipe_version_id:
+            query = query.where(RepositoryImage.recipe_version_id == recipe_version_id)
+        if sku_id:
+            query = query.where(RepositoryImage.sku_id == sku_id)
+        return await count_query(self.db, query, include_deleted=include_deleted)
 
     async def get_repository_image_by_id(self, repository_image_id: int) -> RepositoryImage | None:
         query = (
@@ -300,7 +433,7 @@ class ProductionRepository:
 
         return repository_images
 
-    async def count_repository_images(self, recipe_version_id: int, include_deleted: bool = False) -> int:
+    async def count_repository_images_by_recipe_version_id(self, recipe_version_id: int, include_deleted: bool = False) -> int:
         query = select(func.count(RepositoryImage.id)).where(RepositoryImage.recipe_version_id == recipe_version_id)
         result = await self.db.execute(query, execution_options=include_deleted_execution_options(include_deleted))
         return result.scalar() or 0

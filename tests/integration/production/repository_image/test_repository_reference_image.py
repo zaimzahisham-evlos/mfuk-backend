@@ -57,7 +57,7 @@ async def test_set_reference_switches_previous_flag_off(authorized_client_admin,
     list_resp = await authorized_client_admin.get(
         f"/production/recipe-versions/{DRAFT_RECIPE_VERSION_CODE}/repository-images"
     )
-    rows = {row["id"]: row for row in list_resp.json()}
+    rows = {row["id"]: row for row in list_resp.json()["items"]}
     assert rows[item_a["id"]]["is_reference"] is False
     assert rows[item_b["id"]]["is_reference"] is True
 
@@ -111,7 +111,7 @@ async def test_set_reference_on_already_released_version(authorized_client_admin
     list_resp = await authorized_client_admin.get(
         f"/production/recipe-versions/{RELEASED_CANDIDATE_VERSION_CODE}/repository-images"
     )
-    rows = {row["id"]: row for row in list_resp.json()}
+    rows = {row["id"]: row for row in list_resp.json()["items"]}
     assert rows[item_b["id"]]["is_reference"] is True
     assert rows[item_a["id"]]["is_reference"] is False
 

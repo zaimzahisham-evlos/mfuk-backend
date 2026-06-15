@@ -1,6 +1,8 @@
+from typing import Sequence
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload, with_loader_criteria
 from app.auth.services import AuthenticationService
+from app.core.pagination import PaginationParams, build_list_query, count_query, fetch_paginated
 from app.core.utils import set_attributes
 from app.user.schema import UserCreate, UserUpdate
 from ..user.models import User, UserStatus
@@ -35,11 +37,37 @@ class UserRepository:
             ),
         )
 
-    async def get_users(self) -> list[User]:
-        query = select(User).where(User.status != UserStatus.DELETED)
+    async def get_users(
+        self, 
+        include_deleted: bool = False,
+        statuses: Sequence[UserStatus] | None = None,
+        pagination: PaginationParams | None = None
+    ) -> list[User]:
+        query = build_list_query(
+            User,
+            statuses=statuses,
+            status_column=User.status,
+            search=pagination.search if pagination else None,
+            search_columns=(User.user_code, User.full_name),
+            order_by=(User.created_at.desc(), User.id.desc()),
+        )
         query = query.options(*self._effective_role_load_options())
-        result = await self.db.execute(query)
-        return list(result.scalars().all())
+        return await fetch_paginated(self.db, query, include_deleted=include_deleted, pagination=pagination)
+
+    async def count_users(
+        self, 
+        include_deleted: bool = False, 
+        statuses: Sequence[UserStatus] | None = None, 
+        search: str | None = None
+    ) -> int:
+        query = build_list_query(
+            User,
+            statuses=statuses,
+            status_column=User.status,
+            search=search,
+            search_columns=(User.user_code, User.full_name),
+        )
+        return await count_query(self.db, query, include_deleted=include_deleted)
 
     async def get_user_by_id(self, user_id: int, status: UserStatus | None = None) -> User | None:
         query = select(User).where(User.id == user_id, User.status != UserStatus.DELETED)

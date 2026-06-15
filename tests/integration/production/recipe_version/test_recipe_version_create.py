@@ -97,10 +97,10 @@ async def test_create_recipe_version_with_duplicate_version_code(authorized_clie
 @pytest.mark.usefixtures("seeded_recipe_versions")
 async def test_create_recipe_version_with_source_version_id(authorized_client_admin):
     payload = await get_recipe_version_payload(authorized_client_admin)
-    recipe_versions = await authorized_client_admin.get("/production/recipes/TEST_RECIPE_00/versions")
-    recipe_version = recipe_versions.json()[0]
+    response = await authorized_client_admin.get("/production/recipe-versions/TEST_RECIPE_VERSION_011")
+    recipe_version = response.json()
     payload.update({"source_version_id": recipe_version["id"], "recipe_id": recipe_version["recipe_id"]})
-    response = await authorized_client_admin.post("/production/recipes/TEST_RECIPE_00/versions", json=payload)
+    response = await authorized_client_admin.post("/production/recipes/TEST_RECIPE_01/versions", json=payload)
     assert response.status_code == 201
     assert response.json()["source_version_id"] == recipe_version["id"]
     assert response.json()["engineering_reason"] == f"Copy of {recipe_version['version_name']}"
@@ -116,10 +116,10 @@ async def test_create_recipe_version_with_not_found_source_version_id(authorized
 @pytest.mark.usefixtures("seeded_recipe_versions")
 async def test_create_recipe_version_with_source_version_id_not_belong_to_recipe(authorized_client_admin):
     payload = await get_recipe_version_payload(authorized_client_admin)
-    recipe_00_versions = await authorized_client_admin.get("/production/recipes/TEST_RECIPE_00/versions")
-    recipe_00_version = recipe_00_versions.json()[0]
-    recipe_01_versions = await authorized_client_admin.get("/production/recipes/TEST_RECIPE_01/versions")
-    recipe_01_version = recipe_01_versions.json()[0]    
+    response = await authorized_client_admin.get("/production/recipe-versions/TEST_RECIPE_VERSION_001")
+    recipe_00_version = response.json()
+    response = await authorized_client_admin.get("/production/recipe-versions/TEST_RECIPE_VERSION_011")
+    recipe_01_version = response.json()
     payload.update({"source_version_id": recipe_01_version["id"], "recipe_id": recipe_00_version["recipe_id"]})
     response = await authorized_client_admin.post("/production/recipes/TEST_RECIPE_00/versions", json=payload)
     assert response.status_code == 400

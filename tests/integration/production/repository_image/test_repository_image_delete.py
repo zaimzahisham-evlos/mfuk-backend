@@ -30,7 +30,7 @@ async def test_delete_repository_image(authorized_client_admin, fake_storage):
     list_resp = await authorized_client_admin.get(
         f"/production/recipe-versions/{DRAFT_RECIPE_VERSION_CODE}/repository-images"
     )
-    assert all(row["id"] != image_id for row in list_resp.json())
+    assert all(row["id"] != image_id for row in list_resp.json()["items"])
 
 
 async def test_delete_on_released_recipe_version(authorized_client_admin, fake_storage):

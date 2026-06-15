@@ -3,6 +3,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Sequence
 from app.core.exceptions import BadRequestError, NotFoundError
+from app.core.pagination import PaginatedResponse, PaginationParams, to_paginated_response
 from app.core.utils import utcnow
 from app.production.helpers import allow_recipe_version_status_transitions, is_recipe_version_immutable, to_machine_response, to_recipe_response, to_recipe_version_response, to_sku_response
 from app.production.models import *
@@ -18,9 +19,16 @@ class ProductionService:
         self.repo = ProductionRepository(db)
 
     # Machines
-    async def get_machines(self, include_deleted: bool = False, statuses: Sequence[MachineStatus] | None = None) -> list[MachineResponse]:
-        machines = await self.repo.get_machines(include_deleted, statuses)
-        return [to_machine_response(machine) for machine in machines]
+    async def get_machines(
+        self, 
+        include_deleted: bool = False, 
+        statuses: Sequence[MachineStatus] | None = None,
+        pagination: PaginationParams | None = None,
+    ) -> PaginatedResponse[MachineResponse]:
+        total = await self.repo.count_machines(include_deleted, statuses, pagination.search if pagination else None)
+        machines = await self.repo.get_machines(include_deleted, statuses, pagination)
+        items = [to_machine_response(machine) for machine in machines]
+        return to_paginated_response(items, total, pagination)
 
     async def get_machine_by_id(self, machine_id: int) -> MachineResponse:
         machine = await self.repo.get_machine_by_id(machine_id)
@@ -101,9 +109,17 @@ class ProductionService:
             dto.thumbnail_url = get_storage_client().presign_get(thumbnail.bucket, thumbnail.object_key)
         return dto
     
-    async def get_skus(self, include_deleted: bool = False, statuses: Sequence[SKUStatus] | None = None) -> list[SKUResponse]:
-        skus = await self.repo.get_skus(include_deleted, statuses)
-        return [await self._to_sku_response(sku) for sku in skus]
+    async def get_skus(
+        self, 
+        include_deleted: bool = False, 
+        statuses: Sequence[SKUStatus] | None = None,
+        pagination: PaginationParams | None = None,
+    ) -> PaginatedResponse[SKUResponse]:
+        total = await self.repo.count_skus(include_deleted, statuses, pagination.search if pagination else None)
+        skus = await self.repo.get_skus(include_deleted, statuses, pagination)
+        items = [await self._to_sku_response(sku) for sku in skus]
+        return to_paginated_response(items, total, pagination)
+
 
     async def get_sku_by_id(self, sku_id: int) -> SKUResponse:
         sku = await self.repo.get_sku_by_id(sku_id)
@@ -189,9 +205,12 @@ class ProductionService:
         statuses: Sequence[RecipeStatus] | None = None,
         sku_id: int | None = None,
         machine_id: int | None = None,
-    ) -> list[RecipeResponse]:
-        recipes = await self.repo.get_recipes(include_deleted, statuses, sku_id, machine_id)
-        return [await self._to_recipe_response(recipe) for recipe in recipes]
+        pagination: PaginationParams | None = None,
+    ) -> PaginatedResponse[RecipeResponse]:
+        total = await self.repo.count_recipes(include_deleted, statuses, sku_id, machine_id, pagination.search if pagination else None)
+        recipes = await self.repo.get_recipes(include_deleted, statuses, sku_id, machine_id, pagination)
+        items = [await self._to_recipe_response(recipe) for recipe in recipes]
+        return to_paginated_response(items, total, pagination)
 
     async def get_recipe_by_id(self, recipe_id: int) -> RecipeResponse:
         recipe = await self.repo.get_recipe_by_id(recipe_id)
@@ -296,10 +315,17 @@ class ProductionService:
             raise BadRequestError(f"Invalid recipe payload or conflicting recipe data")
 
     # Recipe Versions
-    async def get_recipe_versions(self, recipe_code: str, include_deleted: bool = False, statuses: Sequence[RecipeVersionStatus] | None = None) -> list[RecipeVersionResponse]:
+    async def get_recipe_versions(
+        self, recipe_code: str, 
+        include_deleted: bool = False, 
+        statuses: Sequence[RecipeVersionStatus] | None = None,
+        pagination: PaginationParams | None = None,
+    ) -> PaginatedResponse[RecipeVersionResponse]:
         recipe = await self.get_recipe_by_code(recipe_code)
-        recipe_versions = await self.repo.get_recipe_versions(recipe.id, include_deleted, statuses)
-        return [to_recipe_version_response(recipe_version) for recipe_version in recipe_versions]
+        total = await self.repo.count_recipe_versions(recipe.id, include_deleted, statuses, pagination.search if pagination else None)
+        recipe_versions = await self.repo.get_recipe_versions(recipe.id, include_deleted, statuses, pagination)
+        items = [to_recipe_version_response(recipe_version) for recipe_version in recipe_versions]
+        return to_paginated_response(items, total, pagination)
 
     async def get_recipe_version_by_id(self, recipe_version_id: int) -> RecipeVersionResponse:
         recipe_version = await self.repo.get_recipe_version_by_id(recipe_version_id)
@@ -444,7 +470,7 @@ class ProductionService:
         if is_recipe_version_immutable(recipe_version.status):
             raise BadRequestError(f"Cannot init repository images for a {recipe_version.status.value.lower()} recipe version")
 
-        existing_count = await self.repo.count_repository_images(recipe_version.id)
+        existing_count = await self.repo.count_repository_images_by_recipe_version_id(recipe_version.id)
         
         if existing_count + len(payload.images) > settings.MAX_REPOSITORY_IMAGES_PER_RECIPE_VERSION:
             raise BadRequestError((
@@ -610,21 +636,23 @@ class ProductionService:
         include_deleted: bool = False,
         statuses: Sequence[RepositoryImageStatus] | None = None,
         sku_id: int | None = None,
-    ) -> list[RepositoryImageResponse]:
+        pagination: PaginationParams | None = None,
+    ) -> PaginatedResponse[RepositoryImageResponse]:
         recipe_version = await self.get_recipe_version_by_code(recipe_version_code)
 
         if sku_id: 
             await self.get_sku_by_id(sku_id)
 
         storage_client = get_storage_client()
-        images = await self.repo.get_repository_images(recipe_version.id, include_deleted, statuses, sku_id)
+        total = await self.repo.count_repository_images(recipe_version.id, include_deleted, statuses, sku_id, pagination.search if pagination else None)
+        images = await self.repo.get_repository_images(recipe_version.id, include_deleted, statuses, sku_id, pagination)
         results: list[RepositoryImageResponse] = []
         for image in images:
             dto = RepositoryImageResponse.model_validate(image)
             if image.status == RepositoryImageStatus.ACTIVE:
                 dto.download_url = storage_client.presign_get(image.bucket, image.object_key)
             results.append(dto)
-        return results
+        return to_paginated_response(results, total, pagination)
 
     async def delete_repository_images(
         self,
