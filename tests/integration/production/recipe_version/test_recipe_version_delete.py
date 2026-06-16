@@ -38,11 +38,9 @@ async def test_delete_recipe_version_with_released_status(authorized_client_admi
     response = await authorized_client_admin.patch(f"/production/recipe-versions/TEST_RECIPE_VERSION_001", json={
         "status": "Approved",
     })
-    print("updated to approved", response.json())
     response = await authorized_client_admin.patch(f"/production/recipe-versions/TEST_RECIPE_VERSION_001", json={
         "status": "Released",
     })
-    print("updated to released", response.json())
     assert response.json()["status"] == "Released"
     assert response.json()["released_at"] is not None
 

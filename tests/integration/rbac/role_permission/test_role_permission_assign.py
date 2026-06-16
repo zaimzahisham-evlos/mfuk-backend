@@ -19,7 +19,7 @@ async def test_superadmin_assign_permissions_to_role(authorized_client_superadmi
     role = await authorized_client_superadmin.get("/authorization/roles/superadmin")
     role_id = role.json()["id"]
     permissions = await authorized_client_superadmin.get("/authorization/permissions?modules=role&modules=permission")
-    permissions = permissions.json()
+    permissions = permissions.json()["items"]
     response = await authorized_client_superadmin.post(f"/authorization/roles/{role_id}/permissions", json={
         "role_permissions": [
             {
@@ -38,7 +38,7 @@ async def test_rbac_manager_assign_permissions_to_role(authorized_client_rbac_ma
     role = await authorized_client_rbac_manager.get("/authorization/roles/superadmin")
     role_id = role.json()["id"]
     permissions = await authorized_client_rbac_manager.get("/authorization/permissions?modules=role&modules=permission")
-    permissions = permissions.json()
+    permissions = permissions.json()["items"]
     response = await authorized_client_rbac_manager.post(f"/authorization/roles/{role_id}/permissions", json={
         "role_permissions": [
             {
@@ -57,7 +57,7 @@ async def test_assign_permissions_to_role_duplicate_in_payload(authorized_client
     role = await authorized_client_rbac_manager.get("/authorization/roles/superadmin")
     role_id = role.json()["id"]
     permissions = await authorized_client_rbac_manager.get("/authorization/permissions?modules=role&modules=permission")
-    permissions = permissions.json()
+    permissions = permissions.json()["items"]
     response = await authorized_client_rbac_manager.post(f"/authorization/roles/{role_id}/permissions", json={
         "role_permissions": [
             {
@@ -81,7 +81,7 @@ async def test_assign_permissions_to_role_same_permission_different_priority(aut
     role = await authorized_client_rbac_manager.get("/authorization/roles/superadmin")
     role_id = role.json()["id"]
     permissions = await authorized_client_rbac_manager.get("/authorization/permissions?modules=role&modules=permission")
-    permissions = permissions.json()
+    permissions = permissions.json()["items"]
     response = await authorized_client_rbac_manager.post(f"/authorization/roles/{role_id}/permissions", json={
         "role_permissions": [
             {
@@ -104,7 +104,7 @@ async def test_assign_permissions_to_role_with_status_deleted(authorized_client_
     role = await authorized_client_rbac_manager.get("/authorization/roles/superadmin")
     role_id = role.json()["id"]
     permissions = await authorized_client_rbac_manager.get("/authorization/permissions?modules=role&modules=permission")
-    permissions = permissions.json()
+    permissions = permissions.json()["items"]
     response = await authorized_client_rbac_manager.post(f"/authorization/roles/{role_id}/permissions", json={
         "role_permissions": [
             {
@@ -151,7 +151,7 @@ async def test_assign_permissions_to_role_already_assigned(authorized_client_rba
     role = await authorized_client_rbac_manager.get("/authorization/roles/rbac_manager")
     role_id = role.json()["id"]
     permissions = await authorized_client_rbac_manager.get("/authorization/permissions?modules=role&modules=permission")
-    permissions = permissions.json()
+    permissions = permissions.json()["items"]
     response = await authorized_client_rbac_manager.post(f"/authorization/roles/{role_id}/permissions", json={
         "role_permissions": [
             {
@@ -175,7 +175,7 @@ async def test_assign_permissions_to_role_already_assigned_different_status(auth
     role = await authorized_client_rbac_manager.get("/authorization/roles/rbac_manager")
     role_id = role.json()["id"]
     permissions = await authorized_client_rbac_manager.get("/authorization/permissions?modules=role&modules=permission")
-    permissions = permissions.json()
+    permissions = permissions.json()["items"]
     response = await authorized_client_rbac_manager.post(f"/authorization/roles/{role_id}/permissions", json={
         "role_permissions": [
             {
@@ -191,7 +191,7 @@ async def test_assign_permissions_to_role_invalid_status(authorized_client_rbac_
     role = await authorized_client_rbac_manager.get("/authorization/roles/superadmin")
     role_id = role.json()["id"]
     permissions = await authorized_client_rbac_manager.get("/authorization/permissions?modules=role&modules=permission")
-    permissions = permissions.json()
+    permissions = permissions.json()["items"]
     response = await authorized_client_rbac_manager.post(f"/authorization/roles/{role_id}/permissions", json={
         "role_permissions": [
             {
@@ -208,7 +208,7 @@ async def test_assign_permissions_to_role_invalid_effect(authorized_client_rbac_
     role = await authorized_client_rbac_manager.get("/authorization/roles/superadmin")
     role_id = role.json()["id"]
     permissions = await authorized_client_rbac_manager.get("/authorization/permissions?modules=role&modules=permission")
-    permissions = permissions.json()
+    permissions = permissions.json()["items"]
     response = await authorized_client_rbac_manager.post(f"/authorization/roles/{role_id}/permissions", json={
         "role_permissions": [
             {
@@ -225,7 +225,7 @@ async def test_assign_permissions_to_role_invalid_priority(authorized_client_rba
     role = await authorized_client_rbac_manager.get("/authorization/roles/superadmin")
     role_id = role.json()["id"]
     permissions = await authorized_client_rbac_manager.get("/authorization/permissions?modules=role&modules=permission")
-    permissions = permissions.json()
+    permissions = permissions.json()["items"]
     response = await authorized_client_rbac_manager.post(f"/authorization/roles/{role_id}/permissions", json={
         "role_permissions": [
             {
@@ -241,7 +241,7 @@ async def test_assign_permissions_to_role_all_fields(authorized_client_rbac_mana
     role = await authorized_client_rbac_manager.get("/authorization/roles/superadmin")
     role_id = role.json()["id"]
     permissions = await authorized_client_rbac_manager.get("/authorization/permissions?modules=role&modules=permission")
-    permissions = permissions.json()
+    permissions = permissions.json()["items"]
     response = await authorized_client_rbac_manager.post(f"/authorization/roles/{role_id}/permissions", json={
         "role_permissions": [
             {
@@ -286,7 +286,7 @@ async def test_assign_higher_priority_permission_to_deny_role_permission(authori
     role = await authorized_client_rbac_manager.get("/authorization/roles/rbac_manager")
     role_id = role.json()["id"]
     permissions = await authorized_client_rbac_manager.get("/authorization/permissions?modules=role&modules=permission")
-    permissions = permissions.json()
+    permissions = permissions.json()["items"]
     permission_id = None
     for permission in permissions:
         if permission["permission_code"] == "PERMISSION_VIEW":

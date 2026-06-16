@@ -1,6 +1,7 @@
 from typing import Sequence
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+from app.core.pagination import PaginationParams, build_list_query, count_query, fetch_paginated
 from app.core.utils import set_attributes
 from app.db.session import include_deleted_execution_options
 from app.rbac.helpers import active_effective_user_role_clause, effective_now_clause, to_role_permission_response, to_user_role_response
@@ -14,13 +15,44 @@ class RbacRepository:
         self.db = db
 
     """Permissions"""
-    async def get_permissions(self, include_deleted: bool = False, modules: list[str] | None = None) -> list[Permission]:
-        query = select(Permission)
+    async def get_permissions(
+        self, 
+        include_deleted: bool = False, 
+        modules: list[str] | None = None,
+        statuses: list[PermissionStatus] | None = None,
+        pagination: PaginationParams | None = None,
+    ) -> list[Permission]:
+        query = build_list_query(
+            Permission,
+            statuses=statuses,
+            status_column=Permission.status,
+            search=pagination.search if pagination else None,
+            search_columns=(Permission.permission_code, Permission.permission_name),
+            order_by=(Permission.created_at.desc(), Permission.id.desc()),
+        )
+
         if modules:
             query = query.where(Permission.module.in_(modules))
 
-        result = await self.db.execute(query, execution_options=include_deleted_execution_options(include_deleted))
-        return list(result.scalars().all())
+        return await fetch_paginated(self.db, query, include_deleted=include_deleted, pagination=pagination)
+
+    async def count_permissions(
+        self, 
+        include_deleted: bool = False, 
+        modules: list[str] | None = None,
+        statuses: list[PermissionStatus] | None = None,
+        search: str | None = None,
+    ) -> int:
+        query = build_list_query(
+            Permission,
+            statuses=statuses,
+            status_column=Permission.status,
+            search=search,
+            search_columns=(Permission.permission_code, Permission.permission_name),
+        )
+        if modules:
+            query = query.where(Permission.module.in_(modules))
+        return await count_query(self.db, query, include_deleted=include_deleted)
 
     async def get_permission_by_id(self, permission_id: int) -> Permission | None:
         query = select(Permission).where(Permission.id == permission_id, Permission.status != PermissionStatus.DELETED)
@@ -61,10 +93,36 @@ class RbacRepository:
 
 
     """"Roles"""
-    async def get_roles(self, include_deleted: bool = False) -> list[Role]:
-        query = select(Role)
-        result = await self.db.execute(query, execution_options=include_deleted_execution_options(include_deleted))
-        return list(result.scalars().all())
+    async def get_roles(
+        self, 
+        include_deleted: bool = False,
+        statuses: list[RoleStatus] | None = None,
+        pagination: PaginationParams | None = None,
+    ) -> list[Role]:
+        query = build_list_query(
+            Role,
+            statuses=statuses,
+            status_column=Role.status,
+            search=pagination.search if pagination else None,
+            search_columns=(Role.role_code, Role.role_name),
+            order_by=(Role.created_at.desc(), Role.id.desc()),
+        )
+        return await fetch_paginated(self.db, query, include_deleted=include_deleted, pagination=pagination)
+
+    async def count_roles(
+        self, 
+        include_deleted: bool = False, 
+        statuses: list[RoleStatus] | None = None,
+        search: str | None = None,
+    ) -> int:
+        query = build_list_query(
+            Role,
+            statuses=statuses,
+            status_column=Role.status,
+            search=search,
+            search_columns=(Role.role_code, Role.role_name),
+        )
+        return await count_query(self.db, query, include_deleted=include_deleted)
 
     async def get_role_by_id(self, role_id: int) -> Role | None:
         query = select(Role).where(Role.id == role_id, Role.status != RoleStatus.DELETED)

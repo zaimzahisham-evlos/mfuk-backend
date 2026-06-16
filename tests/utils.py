@@ -1,3 +1,4 @@
+from app.core.pagination import PaginationParams
 from app.user.services import UserService
 from app.user.schema import UserCreate
 from app.rbac.services import RbacService
@@ -21,11 +22,12 @@ async def create_user(db_session, full_name: str, user_type: UserType = UserType
         rbac_service = RbacService(db_session)
         role_data = RoleCreate(
             role_code=role_code,
-            role_name=role_code.capitalize(),
+            role_name=role_code.replace("_", " "),
         )
         role = await rbac_service.create_role(role_data)
         
-        permissions = await rbac_service.get_permissions(modules=permission_modules)
+        permissions_page = await rbac_service.get_permissions(modules=permission_modules, pagination=PaginationParams(page=1, limit=100, search=""))
+        permissions = permissions_page.items
         permissions_to_role = AssignPermissionsToRole(
             role_id=role.id,
             role_permissions=[

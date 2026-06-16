@@ -39,13 +39,13 @@ async def test_update_role_permission_different_priority_to_same_priority(author
     role_id = role.json()["id"]
     role_permissions = await authorized_client_rbac_manager.get(f"/authorization/roles/{role_id}/permissions")
     role_permissions = role_permissions.json()
-    role_permission_id = role_permissions[0]["id"]
+    role_permission_id = role_permissions[-1]["id"]
 
     # assign a new role permission with the same permission id but different priority
     response = await authorized_client_rbac_manager.post(f"/authorization/roles/{role_id}/permissions", json={
         "role_permissions": [
             {
-                "permission_id": role_permissions[0]["permission_id"],
+                "permission_id": role_permissions[-1]["permission_id"],
                 "priority": 90,
             }
         ]

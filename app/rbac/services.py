@@ -1,6 +1,7 @@
 import logging
 from typing import Sequence
 from sqlalchemy.exc import IntegrityError
+from app.core.pagination import PaginatedResponse, PaginationParams, to_paginated_response
 from app.core.utils import utcnow
 from app.rbac.helpers import to_role_permission_response, to_user_role_response
 from app.rbac.repository import RbacRepository
@@ -15,11 +16,19 @@ class RbacService:
         self.user_service = UserService(db)
 
     """Permissions"""
-    async def get_permissions(self, include_deleted: bool = False, modules: list[str] | None = None) -> list[PermissionResponse]:
+    async def get_permissions(
+        self, 
+        include_deleted: bool = False, 
+        modules: list[str] | None = None,
+        statuses: list[PermissionStatus] | None = None,
+        pagination: PaginationParams | None = None,
+    ) -> PaginatedResponse[PermissionResponse]:
         if modules:
             modules = [module.strip().title() for module in modules]
-        permissions = await self.repo.get_permissions(include_deleted, modules)
-        return [PermissionResponse.model_validate(permission) for permission in permissions]
+        total = await self.repo.count_permissions(include_deleted, modules, statuses, pagination.search if pagination else None)
+        permissions = await self.repo.get_permissions(include_deleted, modules, statuses, pagination)
+        items = [PermissionResponse.model_validate(permission) for permission in permissions]
+        return to_paginated_response(items, total, pagination)
 
     async def get_permission_by_code(self, permission_code: str) -> PermissionResponse:
         permission_code = permission_code.strip().upper()
@@ -99,9 +108,16 @@ class RbacService:
             raise BadRequestError(f"Invalid permission payload or conflicting permission data")
     
     """Roles"""
-    async def get_roles(self, include_deleted: bool = False) -> list[RoleResponse]:
-        roles = await self.repo.get_roles(include_deleted)
-        return [RoleResponse.model_validate(role) for role in roles]
+    async def get_roles(
+        self, 
+        include_deleted: bool = False,
+        statuses: list[RoleStatus] | None = None,
+        pagination: PaginationParams | None = None,
+    ) -> PaginatedResponse[RoleResponse]:
+        total = await self.repo.count_roles(include_deleted, statuses, pagination.search if pagination else None)
+        roles = await self.repo.get_roles(include_deleted, statuses, pagination)
+        items = [RoleResponse.model_validate(role) for role in roles]
+        return to_paginated_response(items, total, pagination)
 
     async def get_role_by_code(self, role_code: str) -> RoleResponse:
         role_code = role_code.strip().upper()

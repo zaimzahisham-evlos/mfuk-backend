@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Response, status, Depends, Query
 from app.auth.dependencies import require_permission
+from app.core.pagination import PaginatedResponse, PaginationParams
 from app.core.utils import utcnow
 from app.user.schema import UserResponse
 from ..rbac.schema import *
@@ -12,15 +13,17 @@ from ..db.session import get_db
 router = APIRouter()
 
 """Permissions"""
-@router.get("/permissions", response_model=list[PermissionResponse])
+@router.get("/permissions", response_model=PaginatedResponse[PermissionResponse])
 async def get_permissions(
     current_user: Annotated[UserResponse, Depends(require_permission("PERMISSION_VIEW"))], 
     db: Annotated[AsyncSession, Depends(get_db)],
+    pagination: Annotated[PaginationParams, Depends()],
     include_deleted: bool = False,
     modules: Annotated[list[str] | None, Query()] = None,
+    statuses: Annotated[list[PermissionStatus] | None, Query()] = None,
 ):
     logging.info(f"Getting permissions for modules {modules if modules else 'all'}")
-    return await RbacService(db).get_permissions(include_deleted, modules)
+    return await RbacService(db).get_permissions(include_deleted, modules, statuses, pagination)
 
 @router.get("/permissions/{permission_code}", response_model=PermissionResponse)
 async def get_permission_by_code(
@@ -69,14 +72,16 @@ async def delete_permission(
     return await RbacService(db).delete_permission(permission_code, current_user.id)
 
 """Roles"""
-@router.get("/roles", response_model=list[RoleResponse])
+@router.get("/roles", response_model=PaginatedResponse[RoleResponse])
 async def get_roles(
     current_user: Annotated[UserResponse, Depends(require_permission("ROLE_VIEW"))],
     db: Annotated[AsyncSession, Depends(get_db)],
+    pagination: Annotated[PaginationParams, Depends()],
     include_deleted: bool = False,
+    statuses: Annotated[list[RoleStatus] | None, Query()] = None,
 ):
     logging.info(f"Getting roles")
-    return await RbacService(db).get_roles(include_deleted)
+    return await RbacService(db).get_roles(include_deleted, statuses, pagination)
 
 @router.get("/roles/{role_code}", response_model=RoleResponse)
 async def get_role_by_code(
